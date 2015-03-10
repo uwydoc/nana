@@ -1968,14 +1968,14 @@ namespace nana
 					}
 
 					if (do_throw)
-						throw std::runtime_error("place, the name '" + name + "' is redefined.");
+						throw std::invalid_argument("place, the name '" + name + "' is redefined.");
 					else
 						attached_field = nullptr;
 				}
 			}
 
 			if (search_div_name(this->root_division.get(), name))
-				throw std::runtime_error("place, the name '" + name + "' is redefined.");
+				throw std::invalid_argument("place, the name '" + name + "' is redefined.");
 		}
 
 		switch (div_type)
@@ -2074,7 +2074,7 @@ namespace nana
 			{
 				auto & ptr = unique[div->name];
 				if (ptr)
-					throw std::runtime_error("place, the name '" + div->name + "' is redefined.");
+					throw std::invalid_argument("place, the name '" + div->name + "' is redefined.");
 				ptr = &tmp;
 			}
 
@@ -2199,7 +2199,6 @@ namespace nana
 		else
 			replaced = &(impl_->root_division);
 
-		//std::unique_ptr<implement::division> tmp_replaced;
 		replaced->swap(impl_->tmp_replaced);
 
 		try
@@ -2207,13 +2206,13 @@ namespace nana
 			place_parts::tokenizer tknizer(div_text);
 			auto modified = impl_->scan_div(tknizer);
 			auto modified_ptr = modified.get();
-
-			replaced->swap(modified);
-			impl_->check_unique(impl_->root_division.get());
-			impl_->tmp_replaced.reset();
-
 			modified_ptr->name = name;
 			modified_ptr->field = field_ptr;
+
+			replaced->swap(modified);
+
+			impl_->check_unique(impl_->root_division.get());
+			impl_->tmp_replaced.reset();
 
 			modified_ptr->div_owner = div_owner;
 			modified_ptr->div_next = div_next;
