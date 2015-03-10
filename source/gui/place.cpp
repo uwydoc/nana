@@ -14,6 +14,7 @@
 #include <cmath>
 #include <stdexcept>
 #include <cstring>
+#include <map>
 #include <nana/gui/place.hpp>
 #include <nana/gui/programming_interface.hpp>
 #include <nana/gui/widgets/label.hpp>
@@ -715,11 +716,16 @@ namespace nana
 		std::unique_ptr<division> root_division;
 		std::map<std::string, field_impl*> fields;
 
+		//A temporary pointer used to refer to a specified div object which
+		//will be deleted in modification process.
+		std::unique_ptr<division> tmp_replaced;
+
 		//The following functions are defined behind the definition of class division.
 		//because the class division here is an incomplete type.
 		~implement();
 		static division * search_div_name(division* start, const std::string&);
 		std::unique_ptr<division> scan_div(place_parts::tokenizer&);
+		void check_unique(const division*) const;
 	};	//end struct implement
 
 	class place::implement::field_impl
@@ -950,7 +956,7 @@ namespace nana
 		kind kind_of_division;
 		bool display{ true };
 		bool visible{ true };
-		const std::string name;
+		std::string name;
 		std::vector<std::unique_ptr<division>> children;
 
 		nana::rectangle field_area;
@@ -1940,8 +1946,36 @@ namespace nana
 				attached_field = i->second;
 				//the field is attached to a division, it means there is another division with same name.
 				if (attached_field->attached)
-					throw std::runtime_error("place, the name '" + name + "' is redefined.");
+				{
+					bool do_throw = true;
+					if (tmp_replaced)
+					{
+						auto att = attached_field->attached;
+						if (att != tmp_replaced.get())
+						{
+							while (att->div_owner)
+							{
+								if (att->div_owner == tmp_replaced.get())
+								{
+									do_throw = false;
+									break;
+								}
+								att = att->div_owner;
+							}
+						}
+						else
+							do_throw = false;
+					}
+
+					if (do_throw)
+						throw std::runtime_error("place, the name '" + name + "' is redefined.");
+					else
+						attached_field = nullptr;
+				}
 			}
+
+			if (search_div_name(this->root_division.get(), name))
+				throw std::runtime_error("place, the name '" + name + "' is redefined.");
 		}
 
 		switch (div_type)
@@ -2025,6 +2059,35 @@ namespace nana
 		return div;
 	}
 
+	void place::implement::check_unique(const division* div) const
+	{
+		//The second field_impl is useless. Reuse the map type in order to
+		//reduce the size of the generated code, becuase std::set<std::string>
+		//will create a new template class.
+		std::map<std::string, field_impl*> unique;
+		field_impl tmp(nullptr);
+
+		std::function<void(const implement::division* div)> check_fn;
+		check_fn = [&check_fn, &unique, &tmp](const implement::division* div)
+		{
+			if (!div->name.empty())
+			{
+				auto & ptr = unique[div->name];
+				if (ptr)
+					throw std::runtime_error("place, the name '" + div->name + "' is redefined.");
+				ptr = &tmp;
+			}
+
+			for (auto & child : div->children)
+			{
+				check_fn(child.get());
+			}
+		};
+
+		if (div)
+			check_fn(div);
+	}
+
 	//class place
 	place::place()
 		: impl_(new implement)
@@ -2065,8 +2128,127 @@ namespace nana
 	void place::div(const char* s)
 	{
 		place_parts::tokenizer tknizer(s);
-		impl_->root_division.reset();	//clear atachments div-fields
-		impl_->scan_div(tknizer).swap(impl_->root_division);
+		auto div = impl_->scan_div(tknizer);
+		try
+		{
+			impl_->check_unique(div.get());	//may throw if there is a redefined name of field.
+			impl_->root_division.reset();	//clear atachments div-fields
+			impl_->root_division.swap(div);
+		}
+		catch (...)
+		{
+			//redefined a name of field
+			throw;
+		}
+	}
+
+	void place::modify(const char* name, const char* div_text)
+	{
+		if (nullptr == div_text)
+			throw std::invalid_argument("nana.place: invalid div-text");
+
+		if (nullptr == name) name = "";
+
+		//check the name, it throws std::invalid_argument
+		//if name violate the naming convention.
+		place_parts::check_field_name(name);
+
+		implement::division * div_ptr = nullptr;
+		implement::field_impl * field_ptr = nullptr;
+		{
+			auto i = impl_->fields.find(name);
+			if (i != impl_->fields.end())
+				field_ptr = i->second;
+		}
+
+		if (field_ptr)
+		{
+			//remove the existing div object
+			div_ptr = field_ptr->attached;
+		}
+		else
+			div_ptr = impl_->search_div_name(impl_->root_division.get(), name);
+
+		if (nullptr == div_ptr)
+		{
+			std::string what = "nana::place: field '";
+			what += name;
+			what += "' is not found.";
+
+			throw std::invalid_argument(what);
+		}
+
+
+		std::unique_ptr<implement::division>* replaced = nullptr;
+
+		implement::division * div_owner = div_ptr->div_owner;
+		implement::division * div_next = div_ptr->div_next;
+		implement::division * div_bro = nullptr;
+		if (div_owner)
+		{
+			for (auto i = div_owner->children.begin(); i != div_owner->children.end(); ++i)
+			{
+				if (i->get() == div_ptr)
+				{
+					replaced = &(*i);
+					break;
+				}
+				div_bro = i->get();
+			}
+		}
+		else
+			replaced = &(impl_->root_division);
+
+		//std::unique_ptr<implement::division> tmp_replaced;
+		replaced->swap(impl_->tmp_replaced);
+
+		try
+		{
+			place_parts::tokenizer tknizer(div_text);
+			auto modified = impl_->scan_div(tknizer);
+			auto modified_ptr = modified.get();
+
+			replaced->swap(modified);
+			impl_->check_unique(impl_->root_division.get());
+			impl_->tmp_replaced.reset();
+
+			modified_ptr->name = name;
+			modified_ptr->field = field_ptr;
+
+			modified_ptr->div_owner = div_owner;
+			modified_ptr->div_next = div_next;
+			if (field_ptr)
+				field_ptr->attached = modified_ptr;
+
+			std::function<void(implement::division*)> attach;
+			attach = [this, &attach](implement::division* div)
+			{
+				if (!div->name.empty())
+				{
+					auto i = impl_->fields.find(div->name);
+					if (impl_->fields.end() != i)
+					{
+						if (i->second->attached != div)
+						{
+							i->second->attached = div;
+							div->field = i->second;
+						}
+					}
+				}
+
+				for (auto& child : div->children)
+				{
+					attach(child.get());
+				}
+			};
+
+			attach(impl_->root_division.get());
+		}
+		catch (...)
+		{
+			replaced->swap(impl_->tmp_replaced);
+			throw;
+		}
 	}
 
 	place::field_reference place::field(const char* name)
@@ -2074,7 +2256,8 @@ namespace nana
 		if (nullptr == name)
 			name = "";
 
-		//May throw std::invalid_argument
+		//check the name, it throws std::invalid_argument
+		//if name violate the naming convention.
 		place_parts::check_field_name(name);
 
 		//get the field with specified name, if no such field with specified name
