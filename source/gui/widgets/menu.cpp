@@ -671,7 +671,7 @@ namespace nana
 
 					auto owner = API::get_owner_window(*widget_);
 					API::calc_window_point(owner, pos);
-					widget_->move(pos.x, pos.y);
+					widget_->move(pos);
 				}
 			private:
 				widget		*widget_{nullptr};

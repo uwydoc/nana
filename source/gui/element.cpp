@@ -529,6 +529,42 @@ namespace nana
 				return true;
 			}
 		};//end class annex_button
+
+		class close
+			: public element_interface
+		{
+			bool draw(graph_reference graph, const ::nana::color&, const ::nana::color& fgcolor, const rectangle& r, element_state estate) override
+			{
+				auto clr = fgcolor;
+
+				switch (estate)
+				{
+				case element_state::hovered:
+				case element_state::pressed:
+					clr = clr.blend(colors::black, 0.8);
+					break;
+				case element_state::disabled:
+					clr = colors::dark_gray;
+				default:
+					break;
+				}
+
+				graph.set_color(clr);
+
+				int x = r.x + 4;
+				int y = r.y + 4;
+
+				graph.line({ x, y }, { x + 7, y + 7 });
+				graph.line({ x + 1, y }, { x + 7, y + 6 });
+				graph.line({ x, y + 1 }, { x + 6, y + 7 });
+
+				graph.line({ x + 7, y }, { x, y + 7 });
+				graph.line({ x + 6, y }, { x, y + 6 });
+				graph.line({ x + 7, y + 1 }, { x + 1, y + 7 });
+
+				return true;
+			}
+		};
 	}//end namespace element
 
 	template<typename ElementInterface>
@@ -616,6 +652,8 @@ namespace nana
 				element::add_arrow<element::arrow_hollow_triangle>("hollow_triangle");
 
 				element::add_button<element::annex_button>("");	//"annex" in default
+
+				element::add_close<element::close>("");
 			}
 			return obj;
 		}
@@ -659,6 +697,16 @@ namespace nana
 		{
 			return _m_get((name.empty() ? "annex" : name), button_).keeper();
 		}
+
+		void close(const std::string& name, const pat::cloneable<element::provider::factory_interface<element::element_interface>>& factory)
+		{
+			_m_add(name, close_, factory);
+		}
+
+		element::element_interface * const * close(const std::string& name) const
+		{
+			return _m_get(name, close_).keeper();
+		}
 	private:
 		using lock_guard = std::lock_guard<std::recursive_mutex>;
 
@@ -695,6 +743,7 @@ namespace nana
 		item<element::border_interface>	border_;
 		item<element::arrow_interface>	arrow_;
 		item<element::element_interface>	button_;
+		item<element::element_interface>	close_;
 	};
 
 	namespace element
@@ -738,6 +787,16 @@ namespace nana
 		element_interface* const* provider::keeper_button(const std::string& name)
 		{
 			return element_manager::instance().button(name);
+		}
+
+		void provider::add_close(const std::string& name, const pat::cloneable<factory_interface<element_interface>>& factory)
+		{
+			element_manager::instance().close(name, factory);
+		}
+
+		element_interface* const* provider::keeper_close(const std::string& name)
+		{
+			return element_manager::instance().close(name);
 		}
 	}//end namespace element
 
@@ -845,6 +904,24 @@ namespace nana
 			return (*keeper_)->draw(graph, bgcolor, fgcolor, r, estate);
 		}
 	//end class facade<element::button>
+
+
+	//class facade<element::close>
+		facade<element::close>::facade(const char* name)
+			: keeper_(element::provider().keeper_close(name ? name : ""))
+		{}
+
+		void facade<element::close>::switch_to(const char* name)
+		{
+			keeper_ = element::provider().keeper_close(name ? name : "");
+		}
+
+		//Implement element_interface
+		bool facade<element::close>::draw(graph_reference graph, const ::nana::color& bgcolor, const ::nana::color& fgcolor, const ::nana::rectangle& r, element_state estate)
+		{
+			return (*keeper_)->draw(graph, bgcolor, fgcolor, r, estate);
+		}
+	//end class facade<element::close>
 
 	namespace element
 	{

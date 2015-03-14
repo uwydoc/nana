@@ -124,6 +124,17 @@ namespace nana
  		void erase(window handle);				///< Erases a window from field.
 
 		field_reference operator[](const char* name); ///< Returns a field with the specified name. Equal to field();
+
+		template<typename Panel, typename ...Args>
+		void dock(const char* dockname, Args&& ... args)
+		{
+			_m_dock((dockname ? dockname : ""), std::bind([](window parent, Args && ... args)
+			{
+				return (new Panel(wd, std::forward<Args>(args)...));
+			}, std::forward<Args>(args)...));
+		}
+	private:
+		void _m_dock(const std::string& dockname, std::function<std::unique_ptr<widget>(window)>);
 	private:
 		implement * impl_;
 	};

@@ -1,7 +1,7 @@
 /*
  *	Nana GUI Programming Interface Implementation
  *	Nana C++ Library(http://www.nanapro.org)
- *	Copyright(C) 2003-2014 Jinhao(cnjinhao@hotmail.com)
+ *	Copyright(C) 2003-2015 Jinhao(cnjinhao@hotmail.com)
  *
  *	Distributed under the Boost Software License, Version 1.0.
  *	(See accompanying file LICENSE_1_0.txt or copy at
@@ -513,13 +513,13 @@ namespace API
 		return nana::point{};
 	}
 
-	void move_window(window wd, int x, int y)
+	void move_window(window wd, const point& pos)
 	{
 		auto iwd = reinterpret_cast<restrict::core_window_t*>(wd);
 		internal_scope_guard lock;
-		if(restrict::window_manager.move(iwd, x, y, false))
+		if (restrict::window_manager.move(iwd, pos.x, pos.y, false))
 		{
-			if(category::flags::root != iwd->other.category)
+			if (category::flags::root != iwd->other.category)
 			{
 				do{
 					iwd = iwd->parent;

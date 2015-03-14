@@ -35,8 +35,13 @@ namespace nana
 
 		window parent() const;
 
+		/// Returns the caption text of the widget
 		nana::string caption() const;
+
+		/// Sets the caption text of the widget, the text is encoded as UTF-8
 		void caption(std::string utf8);
+
+		/// Sets the caption text of the widget
 		void caption(nana::string);
 
 		template<typename ...Args>
@@ -48,43 +53,62 @@ namespace nana
 		void i18n(i18n_eval);
 
 		void cursor(nana::cursor);
-		nana::cursor cursor() const;		///< Retrieves the shape of cursor
+
+		/// Retrieves the shape of cursor
+		::nana::cursor cursor() const;
 
 		void typeface(const paint::font& font);
 		paint::font typeface() const;
 
-		bool enabled() const;				///< Determines whether the window is enabled for mouse and keyboard input.
+		/// Determines whether the widget is enabled for mouse and keyboard input.
+		bool enabled() const;
+
+		/// Enables or disables mouse and keyboard input to the widget.
 		void enabled(bool);
 
-		void enable_dropfiles(bool);		///< Enables/Disables a window to accept dropped files.
+		/// Enables or Disables dropped-files to the widget.
+		void enable_dropfiles(bool);
 
 		void focus();
 		bool focused() const;
 
-		void show();						///< Sets the window visible.
-		void hide();						///< Sets the window invisible.
+		/// Sets the widget visible
+		void show();
+
+		/// Sets the widget invisible
+		void hide();
+
+		/// Determines whether the widget is visible
 		bool visible() const;
 
-		nana::size size() const;
-		void size(const nana::size&);
+		/// Returns the size
+		::nana::size size() const;
+
+		/// Resizes the widget
+		void size(const ::nana::size&);
 		
+		/// Returns the position
 		point pos() const;
-		void move(int x, int y);
+
+		/// Moves the widget
+		void move(const point&);
+
+		/// Moves and resizes the widget
 		void move(const rectangle&);
 
-		void fgcolor(const nana::color&);
-		nana::color fgcolor() const;
-		void bgcolor(const nana::color&);
-		nana::color bgcolor() const;
+		void fgcolor(const color&);
+		color fgcolor() const;
+		void bgcolor(const color&);
+		color bgcolor() const;
 
 		general_events& events() const;
 
-		void umake_event(event_handle eh) const;              ///< Deletes an event callback by a handle.
+		void umake_event(event_handle) const;              ///< Deletes an event callback by a handle.
 
 		widget& register_shortkey(char_t);	///< Registers a shortkey. To remove a registered key, pass 0.
 
 		widget& take_active(bool activated, window take_if_not_activated);
-		widget& tooltip(const nana::string&);
+		widget& tooltip(const ::nana::string&);
 
 		operator dummy_bool_type() const;
 		operator window() const;
@@ -103,7 +127,7 @@ namespace nana
 		virtual bool _m_show(bool);
 		virtual bool _m_visible() const;
 		virtual void _m_size(const nana::size&);
-		virtual void _m_move(int x, int y);
+		virtual void _m_move(const point&);
 		virtual void _m_move(const rectangle&);
 
 		virtual void _m_typeface(const nana::paint::font& font);

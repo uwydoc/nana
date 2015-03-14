@@ -2129,8 +2129,9 @@ namespace nana
 
 						if(impl_->node_state.tooltip)
 						{
-							nana::point pos = impl_->node_state.tooltip->pos();
-							impl_->node_state.tooltip->move(pos.x - shape.offset_x + old, pos.y);
+							auto pos = impl_->node_state.tooltip->pos();
+							pos.x -= (shape.offset_x - old);
+							impl_->node_state.tooltip->move(pos);
 						}
 
 						if(shape.offset_x == adjust.offset_x_adjust)

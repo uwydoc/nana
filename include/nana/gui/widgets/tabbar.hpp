@@ -8,7 +8,7 @@
  *	http://www.boost.org/LICENSE_1_0.txt)
  *
  *	@file: nana/gui/widgets/tabbar.hpp
- *	@brief: A tabbar contains tab items and toolbox for scrolling, closing, selecting items.
+ *	@brief A tabbar contains tab items and toolbox for scrolling, closing, selecting items.
  *
  */
 #ifndef NANA_GUI_WIDGET_TABBAR_HPP
@@ -212,11 +212,11 @@ namespace nana
 		{
 		}
 
-		tabbar(window wd, const nana::string& text, bool visible)
+		tabbar(window wd, nana::string text, bool visible)
 			: tabbar()
 		{
 			this->create(wd, rectangle(), visible);
-			this->caption(text);
+			this->caption(std::move(text));
 		}
 
 		tabbar(window wd, const rectangle& r = rectangle(), bool visible = true)

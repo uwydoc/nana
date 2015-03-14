@@ -1,7 +1,7 @@
 /*
  *	Elements of GUI Gadgets
  *	Nana C++ Library(http://www.nanapro.org)
- *	Copyright(C) 2003-2014 Jinhao(cnjinhao@hotmail.com)
+ *	Copyright(C) 2003-2015 Jinhao(cnjinhao@hotmail.com)
  *
  *	Distributed under the Boost Software License, Version 1.0. 
  *	(See accompanying file LICENSE_1_0.txt or copy at 
@@ -98,25 +98,28 @@ namespace nana
 				}
 			};
 
-			void add_crook(const std::string& name, const pat::cloneable<factory_interface<crook_interface>>&);
-			crook_interface* const * keeper_crook(const std::string& name);
+			void add_arrow(const std::string&, const pat::cloneable<factory_interface<arrow_interface>>&);
+			arrow_interface* const * keeper_arrow(const std::string&);
 
 			void add_border(const std::string&, const pat::cloneable<factory_interface<border_interface>>&);
 			border_interface* const * keeper_border(const std::string&);
 
-			void add_arrow(const std::string&, const pat::cloneable<factory_interface<arrow_interface>>&);
-			arrow_interface* const * keeper_arrow(const std::string&);
-
 			void add_button(const std::string&, const pat::cloneable<factory_interface<element_interface>>&);
 			element_interface* const* keeper_button(const std::string&);
+
+			void add_close(const std::string& name, const pat::cloneable<factory_interface<element_interface>>&);
+			element_interface* const* keeper_close(const std::string&);
+
+			void add_crook(const std::string& name, const pat::cloneable<factory_interface<crook_interface>>&);
+			crook_interface* const * keeper_crook(const std::string& name);
 		};
 
-		class crook;
-		template<typename UserElement>
-		void add_crook(const std::string& name)
+		class arrow;
+		template<typename ArrowElement>
+		void add_arrow(const std::string& name)
 		{
-			using factory_t = provider::factory<UserElement, crook_interface>;
-			provider().add_crook(name, pat::cloneable<typename factory_t::interface_type>(factory_t()));
+			using factory_t = provider::factory<ArrowElement, arrow_interface>;
+			provider().add_arrow(name, pat::cloneable<typename factory_t::interface_type>(factory_t()));
 		}
 
 		class border;
@@ -127,20 +130,28 @@ namespace nana
 			provider().add_border(name, pat::cloneable<typename factory_t::interface_type>(factory_t()));
 		}
 
-		class arrow;
-		template<typename ArrowElement>
-		void add_arrow(const std::string& name)
-		{
-			using factory_t = provider::factory<ArrowElement, arrow_interface>;
-			provider().add_arrow(name, pat::cloneable<typename factory_t::interface_type>(factory_t()));
-		}
-
 		class button;
 		template<typename ButtonElement>
 		void add_button(const std::string& name)
 		{
 			using factory_t = provider::factory<ButtonElement, element_interface>;
 			provider().add_button(name, pat::cloneable<typename factory_t::interface_type>(factory_t()));
+		}
+
+		class close;
+		template<typename UserElement>
+		void add_close(const std::string& name)
+		{
+			using factory_t = provider::factory<UserElement, element_interface>;
+			provider().add_close(name, pat::cloneable<typename factory_t::interface_type>(factory_t()));
+		}
+
+		class crook;
+		template<typename UserElement>
+		void add_crook(const std::string& name)
+		{
+			using factory_t = provider::factory<UserElement, crook_interface>;
+			provider().add_crook(name, pat::cloneable<typename factory_t::interface_type>(factory_t()));
 		}
 	}//end namespace element
 
@@ -225,6 +236,19 @@ namespace nana
 		element::element_interface* const * keeper_;
 	};//end class facade<element::button>
 
+	template<>
+	class facade<element::close>
+		: public element::element_interface
+	{
+	public:
+		facade(const char* name = nullptr);
+		void switch_to(const char*);
+	public:
+		//Implement element_interface
+		bool draw(graph_reference, const ::nana::color& bgcolor, const ::nana::color& fgcolor, const ::nana::rectangle&, element_state) override;
+	private:
+		element::element_interface* const * keeper_;
+	};//end class facade<element::button>
 
 	namespace element
 	{

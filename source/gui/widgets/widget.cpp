@@ -1,6 +1,7 @@
 /*
  *	The fundamental widget class implementation
- *	Copyright(C) 2003-2013 Jinhao(cnjinhao@hotmail.com)
+ *	Nana C++ Library(http://www.nanapro.org)
+ *	Copyright(C) 2003-2015 Jinhao(cnjinhao@hotmail.com)
  *
  *	Distributed under the Boost Software License, Version 1.0. 
  *	(See accompanying file LICENSE_1_0.txt or copy at 
@@ -134,9 +135,9 @@ namespace nana
 			return API::window_position(handle());
 		}
 
-		void widget::move(int x, int y)
+		void widget::move(const point& pos)
 		{
-			_m_move(x, y);
+			_m_move(pos);
 		}
 
 		void widget::move(const rectangle& r)
@@ -259,9 +260,9 @@ namespace nana
 			API::window_size(handle(), sz);
 		}
 
-		void widget::_m_move(int x, int y)
+		void widget::_m_move(const point& pos)
 		{
-			API::move_window(handle(), x, y);
+			API::move_window(handle(), pos);
 		}
 
 		void widget::_m_move(const rectangle& r)

@@ -1,6 +1,7 @@
 /*
  *	A Tooltip Implementation
- *	Copyright(C) 2003-2013 Jinhao(cnjinhao@hotmail.com)
+ *	Nana C++ Library(http://www.nanapro.org)
+ *	Copyright(C) 2003-2015 Jinhao(cnjinhao@hotmail.com)
  *
  *	Distributed under the Boost Software License, Version 1.0.
  *	(See accompanying file LICENSE_1_0.txt or copy at
@@ -100,13 +101,13 @@ namespace nana
 					return this->size();
 				}
 
-				virtual void tooltip_move(const nana::point& scr_pos, bool ignore_pos) override
+				virtual void tooltip_move(const point& scr_pos, bool ignore_pos) override
 				{
 					ignore_pos_ = ignore_pos;
 					pos_ = scr_pos;
 					if (duration_)
 					{
-						this->move(scr_pos.x, scr_pos.y);
+						this->move(scr_pos);
 						this->show();
 					}
 				}
@@ -137,7 +138,7 @@ namespace nana
 						pos = pos_;
 
 					timer_.stop();
-					move(pos.x, pos.y);
+					move(pos);
 					show();
 				}
 
