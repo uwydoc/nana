@@ -16,7 +16,6 @@
 #ifndef NANA_GUI_PLACE_HPP
 #define NANA_GUI_PLACE_HPP
 #include <nana/gui/basis.hpp>
-#include <utility>
 #include <memory>
 #include <functional>
 
@@ -29,7 +28,7 @@ namespace nana
 		{
 		public:
 			virtual ~place_agent() = default;
-			virtual std::unique_ptr<nana::widget> create(nana::window) const = 0;
+			virtual std::unique_ptr<widget> create(window) const = 0;
 		};
 	}
 
@@ -42,7 +41,7 @@ namespace nana
 			: init_(std::move(initializer))
 		{}
 
-		agent(const nana::char_t* text)
+		agent(const char_t* text)
 			: text_(text)
 		{}
 
@@ -51,7 +50,7 @@ namespace nana
 		{}
 
 	private:
-		std::unique_ptr<nana::widget> create(nana::window handle) const override
+		std::unique_ptr<widget> create(window handle) const override
 		{
 			std::unique_ptr<Widget> ptr(new Widget(handle));
 			ptr->caption(text_);
@@ -60,7 +59,7 @@ namespace nana
 			return std::move(ptr);
 		}
 	private:
-		nana::string text_;
+		::nana::string text_;
 		std::function<void(Widget&)> init_;
 	};
 
@@ -125,6 +124,7 @@ namespace nana
 
 		field_reference operator[](const char* name); ///< Returns a field with the specified name. Equal to field();
 
+		/// Add a panel factory
 		template<typename Panel, typename ...Args>
 		void dock(const char* dockname, Args&& ... args)
 		{

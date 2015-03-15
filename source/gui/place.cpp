@@ -10,10 +10,9 @@
  *	@file: nana/gui/place.cpp
  *	@contributors: qPCR4vir
  */
-#include <sstream>
+
 #include <cfloat>
 #include <cmath>
-#include <cstring>
 #include <map>
 #include <deque>
 #include <nana/gui/place.hpp>
@@ -24,7 +23,7 @@
 #include <nana/gui/drawing.hpp>
 
 #include <memory>
-#include <limits>
+#include <limits>	//numeric_limits
 
 #include "place_parts.hpp"
 
@@ -32,296 +31,12 @@ namespace nana
 {
 	namespace place_parts
 	{
+		//check the name
 		void check_field_name(const char* name)
 		{
-			//check the name
 			if (*name && (*name != '_' && !(('a' <= *name && *name <= 'z') || ('A' <= *name && *name <= 'Z'))))
-				throw std::invalid_argument("place.field: bad field name");
+				throw std::invalid_argument("nana.place: bad field name");
 		}
-
-		//number_t is used for storing a number type variable
-		//such as integer, real and percent. Essentially, percent is a typo of real.
-		class number_t
-		{
-		public:
-			enum class kind{ none, integer, real, percent };
-
-			number_t()
-				: kind_(kind::none)
-			{
-				value_.integer = 0;
-			}
-
-			void reset()
-			{
-				kind_ = kind::none;
-				value_.integer = 0;
-			}
-
-			bool is_negative() const
-			{
-				switch (kind_)
-				{
-				case kind::integer:
-					return (value_.integer < 0);
-				case kind::real:
-				case kind::percent:
-					return (value_.real < 0);
-				default:
-					break;
-				}
-				return false;
-			}
-
-			bool is_none() const
-			{
-				return (kind::none == kind_);
-			}
-
-			bool is_not_none() const
-			{
-				return (kind::none != kind_);
-			}
-
-			kind kind_of() const
-			{
-				return kind_;
-			}
-
-			double get_value(int ref_percent) const
-			{
-				switch (kind_)
-				{
-				case kind::integer:
-					return value_.integer;
-				case kind::real:
-					return value_.real;
-				case kind::percent:
-					return value_.real * ref_percent;
-				default:
-					break;
-				}
-				return 0;
-			}
-
-			int integer() const
-			{
-				if (kind::integer == kind_)
-					return value_.integer;
-				return static_cast<int>(value_.real);
-			}
-
-			double real() const
-			{
-				if (kind::integer == kind_)
-					return value_.integer;
-				return value_.real;
-			}
-
-			void assign(int i)
-			{
-				kind_ = kind::integer;
-				value_.integer = i;
-			}
-
-			void assign(double d)
-			{
-				kind_ = kind::real;
-				value_.real = d;
-			}
-
-			void assign_percent(double d)
-			{
-				kind_ = kind::percent;
-				value_.real = d / 100;
-			}
-		private:
-			kind kind_;
-			union valueset
-			{
-				int integer;
-				double real;
-			}value_;
-		};//end class number_t
-
-		class margin
-		{
-		public:
-			margin& operator=(margin&& rhs)
-			{
-				if (this != &rhs)
-				{
-					all_edges_ = rhs.all_edges_;
-					margins_ = std::move(rhs.margins_);
-				}
-				return *this;
-			}
-
-			void clear()
-			{
-				all_edges_ = true;
-				margins_.clear();
-			}
-
-			void push(const number_t& v)
-			{
-				margins_.emplace_back(v);
-			}
-
-			void set_value(const number_t& v)
-			{
-				clear();
-				margins_.emplace_back(v);
-			}
-
-			void set_array(const std::vector<number_t>& v)
-			{
-				all_edges_ = false;
-				margins_ = v;
-			}
-
-			nana::rectangle area(const ::nana::rectangle& field_area) const
-			{
-				if (margins_.empty())
-					return field_area;
-
-				auto r = field_area;
-				if (all_edges_)
-				{
-					auto px = static_cast<int>(margins_.back().get_value(static_cast<int>(r.width)));
-					const auto dbl_px = static_cast<unsigned>(px << 1);
-					r.x += px;
-					r.width = (r.width < dbl_px ? 0 : r.width - dbl_px);
-
-					r.y += px;
-					r.height = (r.height < dbl_px ? 0 : r.height - dbl_px);
-				}
-				else
-				{
-					int il{ -1 }, ir{ -1 }, it{ -1 }, ib{ -1 };	//index of four corners in margin
-					switch (margins_.size())
-					{
-					case 0:	break;
-					case 1:	//top
-						it = 0;
-						break;
-					case 2://top,bottom and left,right
-						it = ib = 0;
-						il = ir = 1;
-						break;
-					default:
-						il = 3;	//left
-					case 3:	//top, right, bottom
-						it = 0;
-						ir = 1;
-						ib = 2;
-					}
-
-					typedef decltype(r.height) px_type;
-					auto calc = [](px_type a, px_type b)
-					{
-						return (a > b ? a - b : 0);
-					};
-
-					if (0 == it)	//top
-					{
-						auto px = static_cast<int>(margins_[it].get_value(static_cast<int>(field_area.height)));
-						r.y += px;
-						r.height = calc(r.height, static_cast<px_type>(px));
-					}
-
-					if (-1 != ib)	//bottom
-					{
-						auto px = static_cast<int>(margins_[ib].get_value(static_cast<int>(field_area.height)));
-						r.height = calc(r.height, static_cast<px_type>(px));
-					}
-
-					if (-1 != il)	//left
-					{
-						auto px = static_cast<px_type>(margins_[il].get_value(static_cast<int>(field_area.width)));
-						r.x += px;
-						r.width = calc(r.width, static_cast<px_type>(px));
-					}
-
-					if (-1 != ir)	//right
-					{
-						auto px = static_cast<int>(margins_[ir].get_value(static_cast<int>(field_area.width)));
-						r.width = calc(r.width, static_cast<px_type>(px));
-					}
-				}
-				return r;
-			}
-		private:
-			bool all_edges_ = true;
-			std::vector<number_t> margins_;
-		};//end class margin
-
-		class repeated_array
-		{
-		public:
-
-			//A workaround for VC2013, becuase it does not generated an implicit declared move-constructor as defaulted.
-			repeated_array() = default;
-
-			repeated_array(repeated_array && other)
-				:	repeated_{other.repeated_},
-					values_(std::move(other.values_))
-			{
-			}
-
-			repeated_array& operator=(repeated_array&& other)
-			{
-				if(this != &other)
-				{
-					repeated_ = other.repeated_;
-					other.repeated_ = false;
-					values_ = std::move(other.values_);
-				}
-				return *this;
-			}
-
-			void assign(std::vector<number_t>&& c)
-			{
-				values_ = std::move(c);
-			}
-
-			bool empty() const
-			{
-				return values_.empty();
-			}
-
-			void reset()
-			{
-				repeated_ = false;
-				values_.clear();
-			}
-
-			void repeated()
-			{
-				repeated_ = true;
-			}
-
-			void push(const number_t& n)
-			{
-				values_.emplace_back(n);
-			}
-
-			number_t at(std::size_t pos) const
-			{
-				if (values_.empty())
-					return{};
-
-				if (repeated_)
-					pos %= values_.size();
-				else if (pos >= values_.size())
-					return{};
-
-				return values_[pos];
-			}
-		private:
-			bool repeated_ = false;
-			std::vector<number_t> values_;
-		};
 	}//end namespace place_parts
 
 	typedef place_parts::number_t number_t;
@@ -412,46 +127,46 @@ namespace nana
 						++sp_;
 						return token::array;
 					}
-
-				{
-					//When search the repeated.
-					bool repeated = false;
-
-					while (true)
+					else
 					{
-						sp_ = _m_eat_whitespace(sp_);
-						auto tk = read();
-						if (token::number != tk && token::variable != tk && token::repeated != tk)
-							_m_throw_error("invalid array element");
+						//When search the repeated.
+						bool repeated = false;
 
-						if (!repeated)
+						while (true)
 						{
-							switch (tk)
+							sp_ = _m_eat_whitespace(sp_);
+							auto tk = read();
+							if (token::number != tk && token::variable != tk && token::repeated != tk)
+								_m_throw_error("invalid array element");
+
+							if (!repeated)
 							{
-							case token::number:
-								array_.push_back(number_);
-								break;
-							case token::variable:
-								array_.push_back({});
-								break;
-							default:
-								repeated = true;
-								reparray_.repeated();
-								reparray_.assign(std::move(array_));
+								switch (tk)
+								{
+								case token::number:
+									array_.push_back(number_);
+									break;
+								case token::variable:
+									array_.push_back({});
+									break;
+								default:
+									repeated = true;
+									reparray_.repeated();
+									reparray_.assign(std::move(array_));
+								}
 							}
+
+							sp_ = _m_eat_whitespace(sp_);
+							char ch = *sp_++;
+
+							if (ch == ']')
+								return (repeated ? token::reparray : token::array);
+
+							if (ch != ',')
+								_m_throw_error("invalid array");
 						}
-
-						sp_ = _m_eat_whitespace(sp_);
-						char ch = *sp_++;
-
-						if (ch == ']')
-							return (repeated ? token::reparray : token::array);
-
-						if (ch != ',')
-							_m_throw_error("invalid array");
 					}
-				}
-				break;
+					break;
 				case '(':
 					parameters_.clear();
 					sp_ = _m_eat_whitespace(sp_ + 1);
@@ -494,7 +209,7 @@ namespace nana
 						return token::number;
 					}
 					else
-						_m_throw_error(*sp_);
+						_m_throw_error("invalid character '" + std::string(1, *sp_) + "'");
 					break;
 				default:
 					if ('0' <= *sp_ && *sp_ <= '9')
@@ -566,20 +281,12 @@ namespace nana
 				return token::error;	//Useless, just for syntax correction.
 			}
 		private:
-			void _m_throw_error(char err_char)
-			{
-				std::stringstream ss;
-				ss << "place: invalid character '" << err_char << "' at " << static_cast<unsigned>(sp_ - divstr_);
-				throw std::runtime_error(ss.str());
-			}
-
 			void _m_attr_number_value()
 			{
 				if (token::equal != read())
 					_m_throw_error("an equal sign is required after '" + idstr_ + "'");
 
-				const char* p = sp_;
-				for (; *p == ' '; ++p);
+				auto p = _m_eat_whitespace(sp_);
 
 				auto neg_ptr = p;
 				if ('-' == *p)
@@ -598,8 +305,7 @@ namespace nana
 				if (token::equal != read())
 					_m_throw_error("an equal sign is required after '" + idstr + "'");
 
-				const char* p = sp_;
-				for (; *p == ' ' || *p == '\t'; ++p);
+				const char* p = _m_eat_whitespace(sp_);
 
 				reparray_.reset();
 				auto tk = read();
@@ -621,9 +327,7 @@ namespace nana
 
 			void _m_throw_error(const std::string& err)
 			{
-				std::stringstream ss;
-				ss << "nana.place: " << err << " at " << static_cast<unsigned>(sp_ - divstr_);
-				throw std::invalid_argument(ss.str());
+				throw std::invalid_argument("nana.place: " + err + " at " + std::to_string(sp_ - divstr_));
 			}
 
 			const char* _m_eat_whitespace(const char* sp)
@@ -677,7 +381,7 @@ namespace nana
 
 				if (gotcha)
 				{
-					for (; *sp == ' ' || *sp == '\t'; ++sp);
+					sp = _m_eat_whitespace(sp);
 					if ('%' == *sp)
 					{
 						if (number_t::kind::integer == number_.kind_of())
@@ -851,6 +555,8 @@ namespace nana
 		place * place_ptr_;
 	};//end class field_impl
 
+
+
 	class place::implement::division
 	{
 	public:
@@ -888,6 +594,50 @@ namespace nana
 			_m_visible_for_child(this, dsp);
 			visible = dsp;
 			display = dsp;
+
+			if (kind::splitter != kind_of_division)
+			{
+				//Don't display the previous one, if it is a splitter
+				auto div = previous();
+				if (div && (kind::splitter == div->kind_of_division))
+				{
+					if (dsp)
+					{
+						auto leaf = div->previous();
+						if (leaf && leaf->display)
+							div->set_display(true);
+					}
+					else
+						div->set_display(false);
+				}
+
+				//Don't display the next one, if it is a splitter
+				if (div_next && (kind::splitter == div_next->kind_of_division))
+				{
+					if (dsp)
+					{
+						auto leaf = div_next->div_next;
+						if (leaf && leaf->display)
+							div_next->set_display(true);
+					}
+					else
+						div_next->set_display(false);
+				}
+			}
+			else
+			{
+				//This is a splitter, it only checks when it is being displayed
+				if (dsp)
+				{
+					auto left = this->previous();
+					if (left && !left->display)
+						left->set_display(true);
+
+					auto right = div_next;
+					if (right && !right->display)
+						right->set_display(true);
+				}
+			}
 		}
 
 		bool is_back(const division* div) const
@@ -946,19 +696,14 @@ namespace nana
 		
 		}
 	public:
-		void _m_visible_for_child(division * div, bool vsb)
+		static void _m_visible_for_child(division * div, bool vsb)
 		{
 			for (auto & child : div->children)
 			{
 				if (child->field)
 				{
-					if (vsb)
-					{
-						if (child->visible)
-							child->field->visible(true);
-					}
-					else
-						child->field->visible(false);
+					if ((!vsb) || child->visible)
+						child->field->visible(vsb);
 				}
 				_m_visible_for_child(child.get(), vsb);
 			}
@@ -974,7 +719,7 @@ namespace nana
 		std::string name;
 		std::vector<std::unique_ptr<division>> children;
 
-		nana::rectangle field_area;
+		::nana::rectangle field_area;
 		number_t weight;
 		number_t min_px, max_px;
 
@@ -1056,7 +801,7 @@ namespace nana
 				if (child->kind_of_division == kind::splitter)
 					delay_collocates.emplace_back(child);
 				else
-					child->collocate(wd);	/// The child div have full position. Now we can collocate  inside it the child fields and child-div.
+					child->collocate(wd);	// The child div have full position. Now we can collocate  inside it the child fields and child-div.
 			}
 
 			for (auto child : delay_collocates)
@@ -1228,7 +973,7 @@ namespace nana
 			auto find_lowest = [&revises](double level_px)
 			{
 				double v = std::numeric_limits<double>::max();
-				for (auto i = revises.begin(); i != revises.end(); ++i)
+				for (auto i = revises.begin(); i != revises.end(); ++i)	//deprecated
 				{
 					if (i->min_px >= 0 && i->min_px < v && i->min_px > level_px)
 						v = i->min_px;
@@ -1547,21 +1292,10 @@ namespace nana
 		div_splitter(place_parts::number_t init_weight)
 			: division(kind::splitter, std::string()),
 			splitter_cursor_(cursor::arrow),
-			leaf_left_(nullptr), leaf_right_(nullptr),
 			pause_move_collocate_(false),
 			init_weight_(init_weight)
 		{
 			this->weight.assign(splitter_px);
-		}
-
-		void leaf_left(division * d)
-		{
-			leaf_left_ = d;
-		}
-
-		void leaf_right(division * d)
-		{
-			leaf_right_ = d;
 		}
 
 		void direction(bool horizontal)
@@ -1586,8 +1320,8 @@ namespace nana
 
 					auto px_ptr = &nana::rectangle::width;
 
-					auto area_left = leaf_left_->margin_area();
-					auto area_right = leaf_right_->margin_area();
+					auto area_left = _m_leaf_left()->margin_area();
+					auto area_right = _m_leaf_right()->margin_area();
 
 					if (nana::cursor::size_we != splitter_cursor_)
 					{
@@ -1622,9 +1356,10 @@ namespace nana
 					else if (left_px < 0)
 						left_px = 0;
 
+					auto leaf_left = _m_leaf_left();
 					double imd_rate = 100.0 / area_px;
-					left_px = static_cast<int>(limit_px(leaf_left_, left_px, area_px));
-					leaf_left_->weight.assign_percent(imd_rate * left_px);
+					left_px = static_cast<int>(limit_px(leaf_left, left_px, area_px));
+					leaf_left->weight.assign_percent(imd_rate * left_px);
 
 					auto right_px = static_cast<int>(right_pixels_)-delta;
 					if (right_px > total_pixels)
@@ -1632,15 +1367,16 @@ namespace nana
 					else if (right_px < 0)
 						right_px = 0;
 
-					right_px = static_cast<int>(limit_px(leaf_right_, right_px, area_px));
-					leaf_right_->weight.assign_percent(imd_rate * right_px);
+					auto leaf_right = _m_leaf_right();
+					right_px = static_cast<int>(limit_px(leaf_right, right_px, area_px));
+					leaf_right->weight.assign_percent(imd_rate * right_px);
 
 					pause_move_collocate_ = true;
 					div_owner->collocate(splitter_.parent());
 
 					//After the collocating, the splitter keeps the calculated weight of left division,
 					//and clear the weight of right division.
-					leaf_right_->weight.reset();
+					leaf_right->weight.reset();
 
 					pause_move_collocate_ = false;
 				});
@@ -1652,10 +1388,12 @@ namespace nana
 			{
 				const bool vert = (::nana::cursor::size_we != splitter_cursor_);
 
-				area_rotator left(vert, leaf_left_->field_area);
-				area_rotator right(vert, leaf_right_->field_area);
+				auto leaf_left = _m_leaf_left();
+				auto leaf_right = _m_leaf_right();
+				area_rotator left(vert, leaf_left->field_area);
+				area_rotator right(vert, leaf_right->field_area);
 				auto area_px = right.right() - left.x();
-				auto right_px = static_cast<int>(limit_px(leaf_right_, init_weight_.get_value(area_px), static_cast<unsigned>(area_px)));
+				auto right_px = static_cast<int>(limit_px(leaf_right, init_weight_.get_value(area_px), static_cast<unsigned>(area_px)));
 
 				auto pos = area_px - right_px - splitter_px; //New position of splitter
 				if (pos < limited_range.x())
@@ -1673,17 +1411,17 @@ namespace nana
 				right.w_ref() = static_cast<unsigned>(right_pos - pos - splitter_px);
 
 				field_area = sp_r.result();
-				leaf_left_->field_area = left.result();
-				leaf_right_->field_area = right.result();
-				leaf_left_->collocate(wd);
-				leaf_right_->collocate(wd);
+				leaf_left->field_area = left.result();
+				leaf_right->field_area = right.result();
+				leaf_left->collocate(wd);
+				leaf_right->collocate(wd);
 
 				//Set the leafs' weight
 				area_rotator area(vert, div_owner->field_area);
 
 				double imd_rate = 100.0 / static_cast<int>(area.w());
-				leaf_left_->weight.assign_percent(imd_rate * static_cast<int>(left.w()));
-				leaf_right_->weight.assign_percent(imd_rate * static_cast<int>(right.w()));
+				leaf_left->weight.assign_percent(imd_rate * static_cast<int>(left.w()));
+				leaf_right->weight.assign_percent(imd_rate * static_cast<int>(right.w()));
 
 				splitter_.move(this->field_area);
 
@@ -1694,40 +1432,53 @@ namespace nana
 				splitter_.move(this->field_area);
 		}
 	private:
+		division * _m_leaf_left() const
+		{
+			return previous();
+		}
+
+		division * _m_leaf_right() const
+		{
+			return div_next;
+		}
+
 		area_rotator _m_update_splitter_range()
 		{
 			const bool vert = (cursor::size_ns == splitter_cursor_);
 
 			area_rotator area(vert, div_owner->margin_area());
 
-			area_rotator left(vert, leaf_left_->field_area);
-			area_rotator right(vert, leaf_right_->field_area);
+			auto leaf_left = _m_leaf_left();
+			auto leaf_right = _m_leaf_right();
+
+			area_rotator left(vert, leaf_left->field_area);
+			area_rotator right(vert, leaf_right->field_area);
 
 			const int left_base = left.x(), right_base = right.right();
 			int pos = left_base;
 			int endpos = right_base;
 
-			if (leaf_left_->min_px.is_not_none())
+			if (leaf_left->min_px.is_not_none())
 			{
-				auto v = leaf_left_->min_px.get_value(area.w());
+				auto v = leaf_left->min_px.get_value(area.w());
 				pos += static_cast<int>(v);
 			}
-			if (leaf_left_->max_px.is_not_none())
+			if (leaf_left->max_px.is_not_none())
 			{
-				auto v = leaf_left_->max_px.get_value(area.w());
+				auto v = leaf_left->max_px.get_value(area.w());
 				endpos = left_base + static_cast<int>(v);
 			}
 
-			if (leaf_right_->min_px.is_not_none())
+			if (leaf_right->min_px.is_not_none())
 			{
-				auto v = leaf_right_->min_px.get_value(area.w());
+				auto v = leaf_right->min_px.get_value(area.w());
 				auto x = right_base - static_cast<int>(v);
 				if (x < endpos)
 					endpos = x;
 			}
-			if (leaf_right_->max_px.is_not_none())
+			if (leaf_right->max_px.is_not_none())
 			{
-				auto v = leaf_right_->max_px.get_value(area.w());
+				auto v = leaf_right->max_px.get_value(area.w());
 				auto x = right_base - static_cast<int>(v);
 				if (x > pos)
 					pos = x;
@@ -1744,8 +1495,6 @@ namespace nana
 		nana::cursor	splitter_cursor_;
 		place_parts::splitter<true>	splitter_;
 		nana::point	begin_point_;
-		division * leaf_left_;
-		division * leaf_right_;
 		int			left_pos_, right_pos_;
 		unsigned	left_pixels_, right_pixels_;
 		dragger	dragger_;
@@ -1782,13 +1531,6 @@ namespace nana
 		//Implement dock_notifier_interface
 		void notify_float() override
 		{
-			auto div = previous();
-			if (div && (kind::splitter == div->kind_of_division))
-				div->set_display(false);
-
-			if (div_next && (kind::splitter == div->kind_of_division))
-				div_next->set_display(false);
-
 			set_display(false);
 
 			impl_ptr_->collocate();
@@ -1797,16 +1539,7 @@ namespace nana
 		void notify_dock() override
 		{
 			indicator_.docker.reset();
-
-			auto div = previous();
-			if (div && (kind::splitter == div->kind_of_division))
-				div->set_display(true);
-
-			if (div_next && (kind::splitter == div->kind_of_division))
-				div_next->set_display(true);
-
 			set_display(true);
-
 			impl_ptr_->collocate();
 		}
 
@@ -1820,7 +1553,8 @@ namespace nana
 
 			if (!indicator_.docker)
 			{
-				indicator_.docker.reset(new form(impl_ptr_->window_handle, ::nana::size(32, 32), form::appear::bald<>()));
+				auto host_size = API::window_size(impl_ptr_->window_handle);
+				indicator_.docker.reset(new form(impl_ptr_->window_handle, { static_cast<int>(host_size.width) / 2 - 16, static_cast<int>(host_size.height) / 2 - 16, 32, 32 }, form::appear::bald<>()));
 				drawing dw(indicator_.docker->handle());
 				dw.draw([](paint::graphics& graph)
 				{
@@ -1846,9 +1580,9 @@ namespace nana
 
 				indicator_.docker->events().destroy([this]
 				{
-					if (!indicator_.widget.empty())
+					if (indicator_.dock_area)
 					{
-						indicator_.widget.close();
+						indicator_.dock_area.reset();
 						indicator_.graph.release();
 					}
 				});
@@ -1856,30 +1590,52 @@ namespace nana
 
 			if (_m_dockable())
 			{
-				if (indicator_.widget.empty())
+				if (!indicator_.dock_area)
 				{
 					indicator_.graph.make(API::window_size(impl_ptr_->window_handle));
 					API::window_graphics(impl_ptr_->window_handle, indicator_.graph);
 
-					indicator_.widget.create(impl_ptr_->window_handle, false);
-					indicator_.widget.move(indicator_.r);
+					//indicator_.dock_area.reset(new form(impl_ptr_->window_handle, ::nana::size(), form::appear::bald<>()));	//deprecated
+					indicator_.dock_area.reset(new panel<true>(impl_ptr_->window_handle, false));
+					indicator_.dock_area->move(indicator_.r);
 
-					::nana::drawing dw(indicator_.widget);
+					::nana::drawing dw(indicator_.dock_area->handle());
 					dw.draw([this](paint::graphics& graph)
 					{
-						graph.bitblt(graph.size(), indicator_.graph, point());
-						graph.blend(graph.size(), colors::blue, 0.5);
-					});
-					API::bring_top(indicator_.widget, false);
+						indicator_.graph.paste(indicator_.r, graph, 0, 0);
 
-					indicator_.widget.show();
+						const int border_px = 4;
+						rectangle r = graph.size();
+						int right = r.right();
+						int bottom = r.bottom();
+
+						graph.blend(r.pare_off(border_px), colors::blue, 0.3);
+
+						::nana::color clr = colors::deep_sky_blue;
+						r.y = 0;
+						r.height = border_px;
+						graph.blend(r, clr, 0.5);
+						r.y = bottom - border_px;
+						graph.blend(r, clr, 0.5);
+
+						r.x = r.y = 0;
+						r = graph.size();
+						r.width = border_px;
+						graph.blend(r, clr, 0.5);
+						r.x = right - border_px;
+						graph.blend(r, clr, 0.5);
+
+					});
+					//indicator_.dock_area->z_order(nullptr, ::nana::z_order_action::top);	//deprecated
+					API::bring_top(indicator_.dock_area->handle(), false);
+					indicator_.dock_area->show();
 				}
 			}
 			else
 			{
-				if (!indicator_.widget.empty())
+				if (indicator_.dock_area)
 				{
-					indicator_.widget.close();
+					indicator_.dock_area.reset();
 					indicator_.graph.release();
 				}
 			}
@@ -1921,8 +1677,9 @@ namespace nana
 		struct indicator_tag
 		{
 			paint::graphics graph;
-			panel<true> widget;
+			//panel<true> widget;
 			rectangle	r;
+			std::unique_ptr<panel<true>> dock_area;
 			std::unique_ptr<form> docker;
 		}indicator_;
 	};
@@ -2021,7 +1778,6 @@ namespace nana
 				if (!children.empty() && (division::kind::splitter != children.back()->kind_of_division))
 				{
 					auto splitter = new div_splitter(tknizer.number());
-					splitter->leaf_left(children.back().get());
 					children.back()->div_next = splitter;
 					children.emplace_back(splitter);
 				}
@@ -2029,12 +1785,9 @@ namespace nana
 			case token::div_start:
 			{
 				auto div = scan_div(tknizer);
-				if (children.size())
-				{
+				if (!children.empty())
 					children.back()->div_next = div.get();
-					if (division::kind::splitter == children.back()->kind_of_division)
-						dynamic_cast<div_splitter&>(*children.back()).leaf_right(div.get());
-				}
+
 				children.emplace_back(div.release());
 			}
 				break;
@@ -2564,35 +2317,6 @@ namespace nana
 	void place::collocate()
 	{
 		impl_->collocate();
-		/*
-		if (impl_->root_division && impl_->window_handle)	//deprecated
-		{
-			impl_->root_division->field_area = API::window_size(impl_->window_handle);
-			impl_->root_division->collocate(impl_->window_handle);
-
-			for (auto & field : impl_->fields)
-			{
-				bool is_show = false;
-				if (field.second->attached && field.second->attached->visible && field.second->attached->display)
-				{
-					is_show = true;
-					auto div = field.second->attached->div_owner;
-					while (div)
-					{
-						if (!div->visible || !div->display)
-						{
-							is_show = false;
-							break;
-						}
-						div = div->div_owner;
-					}
-				}
-
-				for (auto & el : field.second->elements)
-					API::show_window(el.handle, is_show);
-			}
-		}
-		*/
 	}
 
 	void place::erase(window handle)
@@ -2613,15 +2337,15 @@ namespace nana
 					++i;
 			}
 
-			auto i = std::find_if(fld.second->fastened.begin(), fld.second->fastened.end(), [handle](implement::field_impl::element_t& e)
+			auto & fastened = fld.second->fastened;
+			for (auto i = fastened.begin(); i != fastened.end(); ++i)
 			{
-				return (e.handle == handle);
-			});
-
-			if (i != fld.second->fastened.end())
-			{
-				API::umake_event(i->evt_destroy);
-				fld.second->fastened.erase(i);
+				if (i->handle == handle)
+				{
+					API::umake_event(i->evt_destroy);
+					fastened.erase(i);
+					break;
+				}
 			}
 		}
 
