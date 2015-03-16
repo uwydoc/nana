@@ -283,6 +283,7 @@ namespace nana
 				handle_ = API::dev::create_lite_widget(parent_wd, r, this);
 				API::dev::set_events(handle_, events_);
 				API::dev::set_scheme(handle_, scheme_.get());
+				API::dev::attach_signal(handle_, *this, &widget_object::signal);
 				if(visible)
 					API::show_window(handle_, true);
 				this->_m_complete_creation();

@@ -404,11 +404,12 @@ namespace nana
 		};	//end class tokenizer
 	}
 
-
 	//struct implement
 	struct place::implement
 	{
-		class field_impl;
+		class field_gather;
+		class field_dock;
+
 		class division;
 		class div_arrange;
 		class div_grid;
@@ -418,7 +419,8 @@ namespace nana
 		window window_handle{nullptr};
 		event_handle event_size_handle{nullptr};
 		std::unique_ptr<division> root_division;
-		std::map<std::string, field_impl*> fields;
+		std::map<std::string, field_gather*> fields;
+		std::map<std::string, field_dock*> docks;
 
 		//A temporary pointer used to refer to a specified div object which
 		//will be deleted in modification process.
@@ -433,9 +435,12 @@ namespace nana
 		static division * search_div_name(division* start, const std::string&);
 		std::unique_ptr<division> scan_div(place_parts::tokenizer&);
 		void check_unique(const division*) const;
+
+		//connect the field/dock with div object
+		void connect(division* start);
 	};	//end struct implement
 
-	class place::implement::field_impl
+	class place::implement::field_gather
 		: public place::field_interface
 	{
 	public:
@@ -449,11 +454,11 @@ namespace nana
 			{}
 		};
 
-		field_impl(place * p)
+		field_gather(place * p)
 			: place_ptr_(p)
 		{}
 
-		~field_impl()
+		~field_gather()
 		{
 			for (auto & e : elements)
 				API::umake_event(e.evt_destroy);
@@ -553,7 +558,15 @@ namespace nana
 		std::vector<element_t>	fastened;
 	private:
 		place * place_ptr_;
-	};//end class field_impl
+	};//end class field_gather
+
+	class place::implement::field_dock
+	{
+
+	public:
+		div_dock * attached{ nullptr };	//attached div object
+		place_parts::dockarea dockarea;	//the dockable widget
+	};//end class field_dock
 
 
 
@@ -725,12 +738,12 @@ namespace nana
 
 		place_parts::margin	margin;
 		place_parts::repeated_array gap;
-		field_impl * field;
+		field_gather * field;
 		division * div_next, *div_owner;
 	};//end class division
 
 	template<typename Function>
-	void place::implement::field_impl::_m_for_each(division * div, Function fn)
+	void place::implement::field_gather::_m_for_each(division * div, Function fn)
 	{
 		for (auto & up : div->children)	//The element of children is unique_ptr
 			fn(up.get());
@@ -973,7 +986,7 @@ namespace nana
 			auto find_lowest = [&revises](double level_px)
 			{
 				double v = std::numeric_limits<double>::max();
-				for (auto i = revises.begin(); i != revises.end(); ++i)	//deprecated
+				for (auto i = revises.begin(); i != revises.end(); ++i)
 				{
 					if (i->min_px >= 0 && i->min_px < v && i->min_px > level_px)
 						v = i->min_px;
@@ -1305,8 +1318,9 @@ namespace nana
 	private:
 		void collocate(window wd) override
 		{
-			if (splitter_.empty())
+			if (!created_)
 			{
+				created_ = true;
 				splitter_.create(wd);
 				splitter_.cursor(splitter_cursor_);
 
@@ -1493,6 +1507,7 @@ namespace nana
 		}
 	private:
 		nana::cursor	splitter_cursor_;
+		bool			created_{ false };
 		place_parts::splitter<true>	splitter_;
 		nana::point	begin_point_;
 		int			left_pos_, right_pos_;
@@ -1511,21 +1526,44 @@ namespace nana
 				impl_ptr_{impl}
 		{}
 
-		void collocate(window wd) override
+		~div_dock()
 		{
-			if (dockarea_.empty())
-				dockarea_.create(wd, this);
-
-			if (!dockarea_.floating())
+			if (dockable_field)
 			{
-				dockarea_.move(this->field_area);
-				indicator_.r = this->field_area;
+				dockable_field->dockarea.close();
+				dockable_field->attached = nullptr;
 			}
 		}
 
-		place_parts::dockarea& dockarea()
+		void collocate(window wd) override
 		{
-			return dockarea_;
+			if (!dockable_field)
+			{
+				//
+				if (name.empty())
+					return;
+
+				auto &dock_ptr = impl_ptr_->docks[name];
+				if (!dock_ptr)
+					dock_ptr = new field_dock;
+
+				dock_ptr->attached = this;
+				dockable_field = dock_ptr;
+			}
+
+			auto & dockarea = dockable_field->dockarea;
+			if (!created_)
+			{
+				created_ = true;
+				dockarea.create(wd, this);
+			}
+
+
+			if (!dockarea.empty() && !dockarea.floating())
+			{
+				dockarea.move(this->field_area);
+				indicator_.r = this->field_area;
+			}
 		}
 	private:
 		//Implement dock_notifier_interface
@@ -1644,8 +1682,8 @@ namespace nana
 
 		void notify_move_stopped()
 		{
-			if (_m_dockable())
-				dockarea_.dock();
+			if (_m_dockable() && dockable_field)
+				dockable_field->dockarea.dock();
 
 			indicator_.docker.reset();
 		}
@@ -1670,9 +1708,11 @@ namespace nana
 			rectangle r{ pos, API::window_size(indicator_.docker->handle()) };
 			return r.is_hit(API::cursor_position());
 		}
+	public:
+		field_dock * dockable_field{nullptr};
 	private:
 		implement * const impl_ptr_;
-		place_parts::dockarea dockarea_;
+		bool created_{ false };
 
 		struct indicator_tag
 		{
@@ -1688,8 +1728,12 @@ namespace nana
 	{
 		API::umake_event(event_size_handle);
 		root_division.reset();
+
 		for (auto & pair : fields)
 			delete pair.second;
+
+		for (auto & dock : docks)
+			delete dock.second;
 	}
 
 	void place::implement::collocate()
@@ -1918,48 +1962,8 @@ namespace nana
 				break;
 		}
 
-		field_impl * attached_field = nullptr;
-		if (name.size())
-		{
-			//find the field with specified name.
-			//the field may not be created.
-			auto i = fields.find(name);
-			if (fields.end() != i)
-			{
-				attached_field = i->second;
-				//the field is attached to a division, it means there is another division with same name.
-				if (attached_field->attached)
-				{
-					bool do_throw = true;
-					if (tmp_replaced)
-					{
-						auto att = attached_field->attached;
-						if (att != tmp_replaced.get())
-						{
-							while (att->div_owner)
-							{
-								if (att->div_owner == tmp_replaced.get())
-								{
-									do_throw = false;
-									break;
-								}
-								att = att->div_owner;
-							}
-						}
-						else
-							do_throw = false;
-					}
-
-					if (do_throw)
-						throw std::invalid_argument("nana.place: the name '" + name + "' is redefined.");
-					else
-						attached_field = nullptr;
-				}
-			}
-
-			if (search_div_name(this->root_division.get(), name))
-				throw std::invalid_argument("nana.place: the name '" + name + "' is redefined.");
-		}
+		field_gather*	attached_field = nullptr;
+		field_dock*		attached_dock = nullptr;
 
 		switch (div_type)
 		{
@@ -1988,6 +1992,9 @@ namespace nana
 		}
 			break;
 		case token::dock:
+			if (name.empty())
+				throw std::invalid_argument("nana.place: dock must have a name.");
+
 			div.reset(new div_dock(std::move(name), this));
 			break;
 		default:
@@ -2050,8 +2057,8 @@ namespace nana
 		//The second field_impl is useless. Reuse the map type in order to
 		//reduce the size of the generated code, becuase std::set<std::string>
 		//will create a new template class.
-		std::map<std::string, field_impl*> unique;
-		field_impl tmp(nullptr);
+		std::map<std::string, field_gather*> unique;
+		field_gather tmp(nullptr);
 
 		std::function<void(const implement::division* div)> check_fn;
 		check_fn = [&check_fn, &unique, &tmp](const implement::division* div)
@@ -2072,6 +2079,74 @@ namespace nana
 
 		if (div)
 			check_fn(div);
+	}
+
+	//connect the field/dock with div object, 
+	void place::implement::connect(division* start)
+	{
+		if (!start)
+			return;
+
+		//disconnect
+		for (auto & fd : fields)
+		{
+			if (fd.second->attached)
+			{
+				fd.second->attached->field = nullptr;
+				fd.second->attached = nullptr;
+			}
+		}
+
+		std::map<std::string, field_dock*> docks_to_be_closed;
+		//disconnect
+		for (auto & dk : docks)
+		{
+			if (dk.second->attached)
+				docks_to_be_closed[dk.first] = dk.second;
+		}
+
+		std::function<void(division* div)> check_fn;
+		check_fn = [&check_fn, this, &docks_to_be_closed](division* div)
+		{
+			if (div->name.size())
+			{
+				if (division::kind::dock == div->kind_of_division)
+				{
+					auto i = docks.find(div->name);
+					if (i != docks.end())
+					{
+						docks_to_be_closed.erase(div->name);
+						auto dock = dynamic_cast<div_dock*>(div);
+						dock->dockable_field = i->second;
+						dock->dockable_field->attached = dock;
+					}
+				}
+				else
+				{
+					auto i = fields.find(div->name);
+					if (i != fields.end())
+					{
+						div->field = i->second;
+						div->field->attached = div;
+					}
+				}
+				
+			}
+
+			for (auto & child : div->children)
+			{
+				check_fn(child.get());
+			}
+		};
+
+		check_fn(start);
+
+		for (auto& e : docks_to_be_closed)
+		{
+			e.second->dockarea.close();
+			e.second->attached->dockable_field = nullptr;
+			e.second->attached = nullptr;
+		}
 	}
 
 	//class place
@@ -2118,6 +2193,7 @@ namespace nana
 		try
 		{
 			impl_->check_unique(div.get());	//may throw if there is a redefined name of field.
+			impl_->connect(div.get());
 			impl_->root_division.reset();	//clear atachments div-fields
 			impl_->root_division.swap(div);
 		}
@@ -2139,8 +2215,9 @@ namespace nana
 		//if name violate the naming convention.
 		place_parts::check_field_name(name);
 
+		/*	//deprecated
 		implement::division * div_ptr = nullptr;
-		implement::field_impl * field_ptr = nullptr;
+		implement::field_gather * field_ptr = nullptr;
 		{
 			auto i = impl_->fields.find(name);
 			if (i != impl_->fields.end())
@@ -2156,6 +2233,17 @@ namespace nana
 			div_ptr = impl_->search_div_name(impl_->root_division.get(), name);
 
 		if (nullptr == div_ptr)
+		{
+			std::string what = "nana::place: field '";
+			what += name;
+			what += "' is not found.";
+
+			throw std::invalid_argument(what);
+		}
+		*/
+
+		auto div_ptr = impl_->search_div_name(impl_->root_division.get(), name);
+		if (!div_ptr)
 		{
 			std::string what = "nana::place: field '";
 			what += name;
@@ -2193,18 +2281,19 @@ namespace nana
 			auto modified = impl_->scan_div(tknizer);
 			auto modified_ptr = modified.get();
 			modified_ptr->name = name;
-			modified_ptr->field = field_ptr;
+			//modified_ptr->field = field_ptr;
 
 			replaced->swap(modified);
 
 			impl_->check_unique(impl_->root_division.get());
+			impl_->connect(impl_->root_division.get());
 			impl_->tmp_replaced.reset();
 
 			modified_ptr->div_owner = div_owner;
 			modified_ptr->div_next = div_next;
-			if (field_ptr)
-				field_ptr->attached = modified_ptr;
-
+			//if (field_ptr)
+			//	field_ptr->attached = modified_ptr;
+			/*
 			std::function<void(implement::division*)> attach;
 			attach = [this, &attach](implement::division* div)
 			{
@@ -2228,6 +2317,7 @@ namespace nana
 			};
 
 			attach(impl_->root_division.get());
+			*/
 		}
 		catch (...)
 		{
@@ -2249,7 +2339,7 @@ namespace nana
 		//then create one.
 		auto & p = impl_->fields[name];
 		if (nullptr == p)
-			p = new implement::field_impl(this);
+			p = new implement::field_gather(this);
 
 		if ((!p->attached) && impl_->root_division)
 		{
@@ -2358,13 +2448,24 @@ namespace nana
 		return field(name);
 	}
 
-	void place::_m_dock(const std::string& dockname, std::function<std::unique_ptr<widget>(window)> factory)
+	void place::_m_dock(const std::string& name, std::function<std::unique_ptr<widget>(window)> factory)
 	{
-		auto dock_ptr = dynamic_cast<implement::div_dock*>(impl_->search_div_name(impl_->root_division.get(), dockname));
-		if (!dock_ptr)
-			throw std::invalid_argument("nana.place: '" + dockname + "' is not a dock");
+		//check the name, it throws std::invalid_argument
+		//if name violate the naming convention.
+		place_parts::check_field_name(name.data());
 
-		dock_ptr->dockarea().add_factory(std::move(factory));
+		auto & dock_ptr = impl_->docks[name];
+		if (dock_ptr)
+			dock_ptr = new implement::field_dock;
+
+		dock_ptr->dockarea.add_factory(std::move(factory));
+
+		auto div = dynamic_cast<implement::div_dock*>(impl_->search_div_name(impl_->root_division.get(), name));
+		if (div)
+		{
+			dock_ptr->attached = div;
+			div->dockable_field = dock_ptr;
+		}
 	}
 	//end class place
 }//end namespace nana
