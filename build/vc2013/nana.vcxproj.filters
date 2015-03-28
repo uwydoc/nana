@@ -213,9 +213,6 @@
     <ClCompile Include="..\..\source\paint\detail\native_paint_interface.cpp">
       <Filter>Source Files\nana\paint\detail</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\source\paint\gadget.cpp">
-      <Filter>Source Files\nana\paint</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\source\paint\graphics.cpp">
       <Filter>Source Files\nana\paint</Filter>
     </ClCompile>

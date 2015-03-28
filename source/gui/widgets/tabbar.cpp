@@ -52,7 +52,6 @@ namespace nana
 
 				virtual void item(graph_reference graph, const item_t& m, bool active, state_t sta)
 				{
-					//*
 					const nana::rectangle & r = m.r;
 					color bgcolor;
 					color blcolor;
@@ -112,12 +111,16 @@ namespace nana
 						clr = { 0xF0, 0xF0, 0xF0 };
 					}
 					graph.rectangle(r, true, bgcolor_);
-					nana::paint::gadget::cross(graph, x, y, 14, 6, clr);
+					//nana::paint::gadget::cross(graph, x, y, 14, 6, clr);	//deprecated
+					facade<element::cross> cross;
+					cross.draw(graph, {}, clr, { x, y, 16, 16 }, element_state::normal);
 				}
 
 				virtual void close(graph_reference graph, const nana::rectangle& r, state_t sta)
 				{
-					nana::paint::gadget::close_16_pixels(graph, r.x + (r.width - 16) / 2, r.y + (r.height - 16) / 2, 1, colors::black);
+					facade<element::x_icon> draw_close;
+					draw_close.draw(graph, {}, colors::black, {r.x + int(r.width - 16) / 2, r.y + int(r.height - 16) / 2, 16, 16}, element_state::normal);
+					//nana::paint::gadget::close_16_pixels(graph, r.x + (r.width - 16) / 2, r.y + (r.height - 16) / 2, 1, colors::black);	//deprecated
 					if(item_renderer::highlight == sta)
 						graph.rectangle(r, false, {0xa0, 0xa0, 0xa0});
 				}
@@ -140,24 +143,27 @@ namespace nana
 					else if (!active)
 						clr = ::nana::color{ 0x92, 0x99, 0xA4 };
 
-					gadget::close_16_pixels(graph, r.x - (16 - r.width) / 2, r.y - (16 - r.height) / 2, 1, clr);
+					facade<element::x_icon> draw_close;
+					draw_close.draw(graph, {}, colors::black, { r.x - (16 - int(r.width)) / 2, r.y - (16 - int(r.height)) / 2, 16, 16 }, element_state::normal);
+
+					//gadget::close_16_pixels(graph, r.x - (16 - r.width) / 2, r.y - (16 - r.height) / 2, 1, clr);	//deprecated
 				}
 
 				virtual void back(graph_reference graph, const nana::rectangle& r, state_t sta)
 				{
-					using namespace nana::paint::gadget;
+					//using namespace nana::paint::gadget;	//deprecated
 					_m_draw_arrow(graph, r, sta, direction::west);
 				}
 
 				virtual void next(graph_reference graph, const nana::rectangle& r, state_t sta)
 				{
-					using namespace nana::paint::gadget;
+					//using namespace nana::paint::gadget;	//deprecated
 					_m_draw_arrow(graph, r, sta, direction::east);
 				}
 
 				virtual void list(graph_reference graph, const nana::rectangle& r, state_t sta)
 				{
-					using namespace nana::paint::gadget;
+					//using namespace nana::paint::gadget;	//deprecated
 					_m_draw_arrow(graph, r, sta, direction::south);
 				}
 			private:
@@ -395,7 +401,7 @@ namespace nana
 
 				void detach()
 				{
-					basis_.graph = 0;
+					basis_.graph = nullptr;
 				}
 
 				const pat::cloneable<item_renderer> & ext_renderer() const
@@ -1099,7 +1105,7 @@ namespace nana
 					unsigned scroll_pixels{0};
 					std::size_t active{npos};
 
-					basis_tag():renderer{ def_renderer() }
+					basis_tag():renderer(def_renderer())
 					{}
 				}basis_;
 			};

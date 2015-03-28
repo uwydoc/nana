@@ -1,7 +1,7 @@
 /*
 *	A Menu implementation
 *	Nana C++ Library(http://www.nanapro.org)
-*	Copyright(C) 2009-2014 Jinhao(cnjinhao@hotmail.com)
+*	Copyright(C) 2009-2015 Jinhao(cnjinhao@hotmail.com)
 *
 *	Distributed under the Boost Software License, Version 1.0.
 *	(See accompanying file LICENSE_1_0.txt or copy at
@@ -12,7 +12,7 @@
 
 #include <nana/gui/widgets/menu.hpp>
 #include <nana/system/platform.hpp>
-#include <nana/paint/gadget.hpp>
+//#include <nana/paint/gadget.hpp>	//deprecated
 #include <nana/gui/element.hpp>
 #include <nana/gui/wvl.hpp>
 #include <nana/paint/text_renderer.hpp>

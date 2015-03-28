@@ -14,7 +14,7 @@
 #ifndef NANA_GUI_WIDGET_TABBAR_HPP
 #define NANA_GUI_WIDGET_TABBAR_HPP
 #include "widget.hpp"
-#include "../../paint/gadget.hpp"
+//#include "../../paint/gadget.hpp"	//deprecated
 #include <nana/pat/cloneable.hpp>
 #include <nana/any.hpp>
 
@@ -52,7 +52,7 @@ namespace nana
 			struct tabbar_events
 				: public general_events
 			{
-				typedef T value_type;
+				using value_type = T;
 
 				basic_event<arg_tabbar<value_type>> added;
 				basic_event<arg_tabbar<value_type>> activated;
@@ -71,8 +71,7 @@ namespace nana
 			class item_renderer
 			{
 			public:
-				typedef item_renderer item_renderer_type;
-				typedef ::nana::paint::graphics & graph_reference;
+				using graph_reference = ::nana::paint::graphics &;
 				enum state_t{disable, normal, highlight, press};
 
 				struct item_t
@@ -99,7 +98,7 @@ namespace nana
 				: public event_agent_interface
 			{
 			public:
-				typedef ::nana::arg_tabbar<T>	arg_tabbar;
+				using arg_tabbar = ::nana::arg_tabbar<T>;
 
 				event_agent(::nana::tabbar<T>& tb, DrawerTrigger & dtr)
 					: tabbar_(tb), drawer_trigger_(dtr)

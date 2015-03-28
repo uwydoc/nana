@@ -13,7 +13,7 @@
 #define NANA_GUI_PLACE_PARTS_HPP
 
 #include <nana/gui/widgets/form.hpp>
-#include <nana/gui/widgets/widget.hpp>
+#include <nana/gui/widgets/tabbar.hpp>
 #include <nana/gui/element.hpp>
 #include <stdexcept>
 #include <deque>
@@ -80,28 +80,22 @@ namespace nana
 				r.width = r.height = 16;
 
 				button_.draw(graph, colors::red, colors::white, r, element_state::normal);
-				close_.draw(graph, colors::red, colors::white, r, element_state::normal);
+				x_icon_.draw(graph, colors::red, colors::white, r, element_state::normal);
 			}
 		public:
 			::nana::string caption;
 			facade<element::button> button_;
-			facade<element::close>	close_;
+			facade<element::x_icon>	x_icon_;
 		};
 
 		class dockarea_caption
 			: public widget_object < category::widget_tag, dockcaption_dtrigger >
 		{};
 
-
-		class dockarea_dtrigger
-			: public drawer_trigger
-		{
-		};
-
 		class dockarea
-			: public widget_object <category::lite_widget_tag, dockarea_dtrigger>
+			: public widget_object <category::lite_widget_tag, drawer_trigger>
 		{
-			using base_type = widget_object<category::lite_widget_tag, dockarea_dtrigger>;
+			using base_type = widget_object<category::lite_widget_tag, drawer_trigger>;
 
 			using factory = std::function<std::unique_ptr<widget>(window)>;
 
@@ -123,9 +117,30 @@ namespace nana
 				this->caption("dockarea");
 				caption_.create(*this, true);
 				caption_.caption("dockarea-caption");
+
 				this->events().resized([this](const arg_resized& arg)
 				{
-					caption_.move({ 0, 0, arg.width, 20 });
+					rectangle r{ 0, 0, arg.width, 20 };
+					caption_.move(r);
+
+					if (arg.height > 20)
+					{
+						r.y = 20;
+						if (tabbar_)
+						{
+							tabbar_->move({ 0, int(arg.height) - 20, arg.width, 20 });
+							r.height = arg.height - 40;
+						}
+						else
+							r.height = arg.height - 20;
+					}
+					
+
+					for (auto & pn : panels_)
+					{
+						if (pn.widget_ptr)
+							pn.widget_ptr->move(r);
+					}
 				});
 
 				caption_.events().mouse_down([this](const arg_mouse& arg)
@@ -167,6 +182,23 @@ namespace nana
 						notifier_->notify_move_stopped();
 					}
 				});
+
+				if (panels_.size() > 1)
+					tabbar_.reset(new tabbar<int>(*this));
+
+				std::size_t pos = 0;
+				for (auto & pn : panels_)
+				{
+					if (!pn.widget_ptr)
+					{
+						pn.widget_ptr = pn.factory_fn(*this);
+						if (tabbar_)
+						{
+							tabbar_->push_back(pn.widget_ptr->caption());
+							tabbar_->relate(pos++, pn.widget_ptr->handle());
+						}
+					}
+				}
 			}
 
 			void add_factory(factory && fn)
@@ -180,9 +212,18 @@ namespace nana
 					return;
 
 				API::capture_window(caption_, false);
-				container_.reset(new form(host_window_, {pos() + move_pos, size() }, form::appear::bald<>()));
+
+				rectangle r{ pos() + move_pos, size() };
+				container_.reset(new form(host_window_, r.pare_off(-1), form::appear::bald<>()));
+				drawing dw(container_->handle());
+				dw.draw([](paint::graphics& graph)
+				{
+					graph.rectangle(false, colors::coral);
+				});
 
 				API::set_parent_window(handle(), container_->handle());
+				this->move({ 1, 1 });
+
 				container_->show();
 				API::capture_window(caption_, true);
 
@@ -207,6 +248,7 @@ namespace nana
 			std::unique_ptr<form>	container_;
 			dockarea_caption	caption_;
 			std::deque<panel>	panels_;
+			std::unique_ptr<tabbar<int>> tabbar_;
 
 			struct moves
 			{
@@ -214,7 +256,7 @@ namespace nana
 				::nana::point start_pos;
 				::nana::point start_container_pos;
 			}moves_;
-		};
+		};//class dockarea
 
 
 		//number_t is used for storing a number type variable

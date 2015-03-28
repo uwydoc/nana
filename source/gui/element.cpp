@@ -530,7 +530,7 @@ namespace nana
 			}
 		};//end class annex_button
 
-		class close
+		class x_icon
 			: public element_interface
 		{
 			bool draw(graph_reference graph, const ::nana::color&, const ::nana::color& fgcolor, const rectangle& r, element_state estate) override
@@ -551,16 +551,37 @@ namespace nana
 
 				graph.set_color(clr);
 
-				int x = r.x + 4;
-				int y = r.y + 4;
+				const int x = r.x + 4;
+				const int y = r.y + 4;
 
-				graph.line({ x, y }, { x + 7, y + 7 });
-				graph.line({ x + 1, y }, { x + 7, y + 6 });
-				graph.line({ x, y + 1 }, { x + 6, y + 7 });
+				point p1{ x, y }, p2{ x + 7, y + 7 };
 
-				graph.line({ x + 7, y }, { x, y + 7 });
-				graph.line({ x + 6, y }, { x, y + 6 });
-				graph.line({ x + 7, y + 1 }, { x + 1, y + 7 });
+				graph.line(p1, p2);
+
+				++p1.x;
+				--p2.y;
+				graph.line(p1, p2);
+
+				p1.x = x;
+				++p1.y;
+				p2.x = x + 6;
+				p2.y = y + 7;
+				graph.line(p1, p2);
+
+				p1.x += 7;
+				p1.y = y;
+				p2.x = x;
+				graph.line(p1, p2);
+
+				p1.x = x + 6;
+				p2.y = y + 6;
+				graph.line(p1, p2);
+
+				++p1.x;
+				++p1.y;
+				++p2.x;
+				++p2.y;
+				graph.line(p1, p2);
 
 				return true;
 			}
@@ -603,7 +624,7 @@ namespace nana
 				spare_.emplace_back(keep_e, keep_f);
 		}
 
-		element_t * const * keeper() const
+		element_t * const * cite() const
 		{
 			return &element_ptr_;
 		}
@@ -653,7 +674,7 @@ namespace nana
 
 				element::add_button<element::annex_button>("");	//"annex" in default
 
-				element::add_close<element::close>("");
+				element::add_x_icon<element::x_icon>("");
 			}
 			return obj;
 		}
@@ -665,7 +686,17 @@ namespace nana
 
 		element::crook_interface * const * crook(const std::string& name) const
 		{
-			return _m_get(name, crook_).keeper();
+			return _m_get(name, crook_).cite();
+		}
+
+		void cross(const std::string& name, const pat::cloneable<element::provider::factory_interface<element::element_interface>>& factory)
+		{
+			_m_add(name, cross_, factory);
+		}
+
+		element::element_interface* const * cross(const std::string& name) const
+		{
+			return _m_get(name, cross_).cite();
 		}
 
 		void border(const std::string& name, const pat::cloneable<element::provider::factory_interface<element::border_interface>>& factory)
@@ -675,7 +706,7 @@ namespace nana
 
 		element::border_interface * const * border(const std::string& name) const
 		{
-			return _m_get(name, border_).keeper();
+			return _m_get(name, border_).cite();
 		}
 
 		void arrow(const std::string& name, const pat::cloneable<element::provider::factory_interface<element::arrow_interface>>& factory)
@@ -685,7 +716,7 @@ namespace nana
 
 		element::arrow_interface * const * arrow(const std::string& name) const
 		{
-			return _m_get((name.empty() ? "arrowhead" : name), arrow_).keeper();
+			return _m_get((name.empty() ? "arrowhead" : name), arrow_).cite();
 		}
 
 		void button(const std::string& name, const pat::cloneable<element::provider::factory_interface<element::element_interface>>& factory)
@@ -695,17 +726,17 @@ namespace nana
 
 		element::element_interface * const * button(const std::string& name) const
 		{
-			return _m_get((name.empty() ? "annex" : name), button_).keeper();
+			return _m_get((name.empty() ? "annex" : name), button_).cite();
 		}
 
-		void close(const std::string& name, const pat::cloneable<element::provider::factory_interface<element::element_interface>>& factory)
+		void x_icon(const std::string& name, const pat::cloneable<element::provider::factory_interface<element::element_interface>>& factory)
 		{
-			_m_add(name, close_, factory);
+			_m_add(name, x_icon_, factory);
 		}
 
-		element::element_interface * const * close(const std::string& name) const
+		element::element_interface * const * x_icon(const std::string& name) const
 		{
-			return _m_get(name, close_).keeper();
+			return _m_get(name, x_icon_).cite();
 		}
 	private:
 		using lock_guard = std::lock_guard<std::recursive_mutex>;
@@ -740,10 +771,11 @@ namespace nana
 	private:
 		mutable std::recursive_mutex mutex_;
 		item<element::crook_interface>	crook_;
+		item<element::element_interface> cross_;
 		item<element::border_interface>	border_;
 		item<element::arrow_interface>	arrow_;
 		item<element::element_interface>	button_;
-		item<element::element_interface>	close_;
+		item<element::element_interface>	x_icon_;
 	};
 
 	namespace element
@@ -754,9 +786,19 @@ namespace nana
 			element_manager::instance().crook(name, factory);
 		}
 
-		crook_interface* const * provider::keeper_crook(const std::string& name)
+		crook_interface* const * provider::cite_crook(const std::string& name)
 		{
 			return element_manager::instance().crook(name);
+		}
+
+		void provider::add_cross(const std::string& name, const pat::cloneable<factory_interface<element_interface>>& factory)
+		{
+			element_manager::instance().cross(name, factory);
+		}
+
+		element_interface* const* provider::cite_cross(const std::string& name)
+		{
+			return element_manager::instance().cross(name);
 		}
 
 		void provider::add_border(const std::string& name, const pat::cloneable<factory_interface<border_interface>>& factory)
@@ -764,7 +806,7 @@ namespace nana
 			element_manager::instance().border(name, factory);
 		}
 
-		border_interface* const * provider::keeper_border(const std::string& name)
+		border_interface* const * provider::cite_border(const std::string& name)
 		{
 			return element_manager::instance().border(name);
 		}
@@ -774,7 +816,7 @@ namespace nana
 			element_manager::instance().arrow(name, factory);
 		}
 
-		arrow_interface* const * provider::keeper_arrow(const std::string& name)
+		arrow_interface* const * provider::cite_arrow(const std::string& name)
 		{
 			return element_manager::instance().arrow(name);
 		}
@@ -784,26 +826,26 @@ namespace nana
 			element_manager::instance().button(name, factory);
 		}
 
-		element_interface* const* provider::keeper_button(const std::string& name)
+		element_interface* const* provider::cite_button(const std::string& name)
 		{
 			return element_manager::instance().button(name);
 		}
 
-		void provider::add_close(const std::string& name, const pat::cloneable<factory_interface<element_interface>>& factory)
+		void provider::add_x_icon(const std::string& name, const pat::cloneable<factory_interface<element_interface>>& factory)
 		{
-			element_manager::instance().close(name, factory);
+			element_manager::instance().x_icon(name, factory);
 		}
 
-		element_interface* const* provider::keeper_close(const std::string& name)
+		element_interface* const* provider::cite_x_icon(const std::string& name)
 		{
-			return element_manager::instance().close(name);
+			return element_manager::instance().x_icon(name);
 		}
 	}//end namespace element
 
 	//facades
 	//template<> class facade<element::crook>
 		facade<element::crook>::facade(const char* name)
-			:	keeper_(element::provider().keeper_crook(name ? name : ""))
+			:	cite_(element::provider().cite_crook(name ? name : ""))
 		{
 			data_.check_state = state::unchecked;
 			data_.radio = false;
@@ -839,40 +881,120 @@ namespace nana
 
 		void facade<element::crook>::switch_to(const char* name)
 		{
-			keeper_ = element::provider().keeper_crook(name ? name : "");
+			cite_ = element::provider().cite_crook(name ? name : "");
 		}
 
 		bool facade<element::crook>::draw(graph_reference graph, const ::nana::color& bgcol, const ::nana::color& fgcol, const nana::rectangle& r, element_state es)
 		{
-			return (*keeper_)->draw(graph, bgcol, fgcol, r, es, data_);
+			return (*cite_)->draw(graph, bgcol, fgcol, r, es, data_);
 		}
 	//end class facade<element::crook>
 
+	//class facade<element::cross>
+		facade<element::cross>::facade(const char* name)
+			: cite_(element::provider().cite_cross(name ? name : ""))
+		{
+		
+		}
+
+		void facade<element::cross>::switch_to(const char* name)
+		{
+			cite_ = element::provider().cite_cross(name ? name : "");
+		}
+
+		void facade<element::cross>::thickness(unsigned thk)
+		{
+			thickness_ = thk;
+		}
+
+		void facade<element::cross>::size(unsigned size_px)
+		{
+			size_ = size_px;
+		}
+
+		//Implement element_interface
+		bool facade<element::cross>::draw(graph_reference graph, const ::nana::color&, const ::nana::color& fgcolor, const ::nana::rectangle& r, element_state)
+		{
+			if (thickness_ + 2 <= size_)
+			{
+				int gap = (static_cast<int>(size_) - static_cast<int>(thickness_)) / 2;
+
+				nana::point ps[12];
+				ps[0].x = r.x + gap;
+				ps[1].x = ps[0].x + static_cast<int>(thickness_) - 1;
+				ps[1].y = ps[0].y = r.y;
+
+				ps[2].x = ps[1].x;
+				ps[2].y = r.y + gap;
+
+				ps[3].x = ps[2].x + gap;
+				ps[3].y = ps[2].y;
+
+				ps[4].x = ps[3].x;
+				ps[4].y = ps[3].y + static_cast<int>(thickness_)-1;
+
+				ps[5].x = ps[1].x;
+				ps[5].y = ps[4].y;
+
+				ps[6].x = ps[5].x;
+				ps[6].y = ps[5].y + gap;
+
+				ps[7].x = r.x + gap;
+				ps[7].y = ps[6].y;
+
+				ps[8].x = ps[7].x;
+				ps[8].y = ps[4].y;
+
+				ps[9].x = r.x;
+				ps[9].y = ps[4].y;
+
+				ps[10].x = r.x;
+				ps[10].y = r.y + gap;
+
+				ps[11].x = r.x + gap;
+				ps[11].y = r.y + gap;
+
+				graph.set_color(fgcolor.blend(colors::black, true));
+
+				for (int i = 0; i < 11; ++i)
+					graph.line(ps[i], ps[i + 1]);
+				graph.line(ps[11], ps[0]);
+
+				graph.set_color(fgcolor);
+
+				unsigned thk_minus_2 = thickness_ - 2;
+				graph.rectangle(rectangle{ ps[10].x + 1, ps[10].y + 1, (gap << 1) + thk_minus_2, thk_minus_2 }, true);
+				graph.rectangle(rectangle{ ps[0].x + 1, ps[0].y + 1, thk_minus_2, (gap << 1) + thk_minus_2 }, true);
+			}
+			return true;
+		}
+	//end class facade<element::cross>
+
 	//class facade<element::border>
 		facade<element::border>::facade(const char* name)
-			: keeper_(element::provider().keeper_border(name ? name : ""))
+			: cite_(element::provider().cite_border(name ? name : ""))
 		{}
 
 		void facade<element::border>::switch_to(const char* name)
 		{
-			keeper_ = element::provider().keeper_border(name ? name : "");
+			cite_ = element::provider().cite_border(name ? name : "");
 		}
 
 		bool facade<element::border>::draw(graph_reference graph, const nana::color& bgcolor, const nana::color& fgcolor, const nana::rectangle& r, element_state es)
 		{
-			return (*keeper_)->draw(graph, bgcolor, fgcolor, r, es, 2);
+			return (*cite_)->draw(graph, bgcolor, fgcolor, r, es, 2);
 		}
 	//end class facade<element::border>
 
 	//class facade<element::arrow>
 		facade<element::arrow>::facade(const char* name)
-			:	keeper_(element::provider().keeper_arrow(name ? name : ""))
+			: cite_(element::provider().cite_arrow(name ? name : ""))
 		{
 		}
 
 		void facade<element::arrow>::switch_to(const char* name)
 		{
-			keeper_ = element::provider().keeper_arrow(name ? name : "");
+			cite_ = element::provider().cite_arrow(name ? name : "");
 		}
 
 		void facade<element::arrow>::direction(::nana::direction dir)
@@ -884,44 +1006,44 @@ namespace nana
 		bool facade<element::arrow>::draw(graph_reference graph, const nana::color& bgcolor, const nana::color& fgcolor, const nana::rectangle& r, element_state estate)
 		{
 			graph.set_color(fgcolor);
-			return (*keeper_)->draw(graph, bgcolor, fgcolor, r, estate, dir_);
+			return (*cite_)->draw(graph, bgcolor, fgcolor, r, estate, dir_);
 		}
 	//end class facade<element::arrow>
 
 	//class facade<element::button>::
 		facade<element::button>::facade(const char* name)
-			: keeper_(element::provider().keeper_button(name ? name : ""))
+			: cite_(element::provider().cite_button(name ? name : ""))
 		{}
 
 		void facade<element::button>::switch_to(const char* name)
 		{
-			keeper_ = element::provider().keeper_button(name ? name : "");
+			cite_ = element::provider().cite_button(name ? name : "");
 		}
 
 		//Implement element_interface
 		bool facade<element::button>::draw(graph_reference graph, const ::nana::color& bgcolor, const ::nana::color& fgcolor, const ::nana::rectangle& r, element_state estate)
 		{
-			return (*keeper_)->draw(graph, bgcolor, fgcolor, r, estate);
+			return (*cite_)->draw(graph, bgcolor, fgcolor, r, estate);
 		}
 	//end class facade<element::button>
 
 
-	//class facade<element::close>
-		facade<element::close>::facade(const char* name)
-			: keeper_(element::provider().keeper_close(name ? name : ""))
+	//class facade<element::x_icon>
+		facade<element::x_icon>::facade(const char* name)
+			: cite_(element::provider().cite_x_icon(name ? name : ""))
 		{}
 
-		void facade<element::close>::switch_to(const char* name)
+		void facade<element::x_icon>::switch_to(const char* name)
 		{
-			keeper_ = element::provider().keeper_close(name ? name : "");
+			cite_ = element::provider().cite_x_icon(name ? name : "");
 		}
 
 		//Implement element_interface
-		bool facade<element::close>::draw(graph_reference graph, const ::nana::color& bgcolor, const ::nana::color& fgcolor, const ::nana::rectangle& r, element_state estate)
+		bool facade<element::x_icon>::draw(graph_reference graph, const ::nana::color& bgcolor, const ::nana::color& fgcolor, const ::nana::rectangle& r, element_state estate)
 		{
-			return (*keeper_)->draw(graph, bgcolor, fgcolor, r, estate);
+			return (*cite_)->draw(graph, bgcolor, fgcolor, r, estate);
 		}
-	//end class facade<element::close>
+	//end class facade<element::x_icon>
 
 	namespace element
 	{

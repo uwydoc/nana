@@ -13,7 +13,7 @@
 #define NANA_GUI_WIDGET_SCROLL_HPP
 
 #include "widget.hpp"
-#include <nana/paint/gadget.hpp>
+//#include <nana/paint/gadget.hpp>	//deprecated
 #include <nana/gui/timer.hpp>
 
 namespace nana

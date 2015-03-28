@@ -1334,8 +1334,9 @@ namespace nana
 
 					auto px_ptr = &nana::rectangle::width;
 
-					auto area_left = _m_leaf_left()->margin_area();
-					auto area_right = _m_leaf_right()->margin_area();
+					//Use field_area of leaf, not margin_area. Otherwise splitter would be at wrong position
+					auto area_left = _m_leaf_left()->field_area;
+					auto area_right = _m_leaf_right()->field_area;
 
 					if (nana::cursor::size_we != splitter_cursor_)
 					{
@@ -2448,14 +2449,14 @@ namespace nana
 		return field(name);
 	}
 
-	void place::_m_dock(const std::string& name, std::function<std::unique_ptr<widget>(window)> factory)
+	void place::dock(const std::string& name, std::function<std::unique_ptr<widget>(window)> factory)
 	{
 		//check the name, it throws std::invalid_argument
 		//if name violate the naming convention.
 		place_parts::check_field_name(name.data());
 
 		auto & dock_ptr = impl_->docks[name];
-		if (dock_ptr)
+		if (!dock_ptr)
 			dock_ptr = new implement::field_dock;
 
 		dock_ptr->dockarea.add_factory(std::move(factory));
