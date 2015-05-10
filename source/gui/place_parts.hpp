@@ -92,6 +92,20 @@ namespace nana
 			: public widget_object < category::widget_tag, dockcaption_dtrigger >
 		{};
 
+		class dock_page
+			: public form
+		{
+		public:
+			dock_page(window host, const rectangle& r, const rectangle & tab_r)
+				: form(host, r, form::appear::bald<>())
+			{
+				tab_form_.reset(new form(handle(), tab_r, form::appear::bald<>()));
+
+			}
+		private:
+			std::unique_ptr<form> tab_form_;
+		};
+
 		class dockarea
 			: public widget_object <category::lite_widget_tag, drawer_trigger>
 		{
