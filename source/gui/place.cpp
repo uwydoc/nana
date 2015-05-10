@@ -1541,6 +1541,15 @@ namespace nana
 			dir = pane_dir;
 		}
 
+		~div_dockpane()
+		{
+			if (dockable_field)
+			{
+				dockable_field->dockarea.close();
+				dockable_field->attached = nullptr;
+			}
+		}
+
 		void collocate(window wd) override
 		{
 			if (!dockable_field)
@@ -1639,7 +1648,6 @@ namespace nana
 					indicator_.graph.make(API::window_size(impl_ptr_->window_handle));
 					API::window_graphics(impl_ptr_->window_handle, indicator_.graph);
 
-					//indicator_.dock_area.reset(new form(impl_ptr_->window_handle, ::nana::size(), form::appear::bald<>()));	//deprecated
 					indicator_.dock_area.reset(new panel<true>(impl_ptr_->window_handle, false));
 					indicator_.dock_area->move(indicator_.r);
 
@@ -1670,6 +1678,7 @@ namespace nana
 						graph.blend(r, clr, 0.5);
 
 					});
+
 					//indicator_.dock_area->z_order(nullptr, ::nana::z_order_action::top);	//deprecated
 					API::bring_top(indicator_.dock_area->handle(), false);
 					indicator_.dock_area->show();
@@ -1731,22 +1740,12 @@ namespace nana
 	};
 
 	class place::implement::div_dock
-		: public division, public place_parts::dock_notifier_interface
+		: public division
 	{
 	public:
 		div_dock(std::string && name, implement* impl)
-			:	division(kind::dock, std::move(name)),
-				impl_ptr_{impl}
+			:	division(kind::dock, std::move(name))
 		{}
-
-		~div_dock()
-		{
-			if (dockable_field)
-			{
-				dockable_field->dockarea.close();
-				dockable_field->attached = nullptr;
-			}
-		}
 
 		void collocate(window wd) override
 		{
@@ -1755,27 +1754,36 @@ namespace nana
 			unsigned vert_count = 0, horz_count = 0;
 			unsigned vert_weight = 0, horz_weight = 0;
 
-			if (_m_is_vert(children.front()->dir))
-				horz_count = 1;
-			else
-				vert_count = 1;
+			bool prev_attr = _m_is_vert(children.front()->dir);
+			(prev_attr ? horz_count : vert_count) = 1;
 
 			for (auto & child : children)
 			{
-				if (_m_is_vert(child->dir))
+				auto is_vert = _m_is_vert(child->dir);
+
+				if (child->weight.is_not_none())
 				{
-					if (child->weight.is_none())
-						++vert_count;
-					else
+					if (is_vert)
 						vert_weight += child->weight.get_value(area.height);
-				}
-				else
-				{
-					if (child->weight.is_none())
-						++horz_count;
 					else
 						horz_weight += child->weight.get_value(area.width);
 				}
+
+				if (is_vert == prev_attr)
+				{
+					if (is_vert)
+						++vert_count;
+					else
+						++horz_count;
+				}
+				else
+				{
+					if (is_vert)
+						++horz_count;
+					else
+						++vert_count;
+				}
+				prev_attr = is_vert;
 			}
 			if (0 == vert_count)
 				++vert_count;
@@ -1835,200 +1843,12 @@ namespace nana
 				child->field_area = child_r;
 				child->collocate(wd);
 			}
-
-
-			/*
-			if (!dockable_field)
-			{
-				//
-				if (name.empty())
-					return;
-
-				auto &dock_ptr = impl_ptr_->docks[name];
-				if (!dock_ptr)
-					dock_ptr = new field_dock;
-
-				dock_ptr->attached = this;
-				dockable_field = dock_ptr;
-			}
-
-			auto & dockarea = dockable_field->dockarea;
-			if (!created_)
-			{
-				created_ = true;
-				dockarea.create(wd, this);
-			}
-
-
-			if (!dockarea.empty() && !dockarea.floating())
-			{
-				dockarea.move(this->field_area);
-				indicator_.r = this->field_area;
-			}
-			*/
 		}
 	private:
 		static bool _m_is_vert(::nana::direction dir)
 		{
 			return (dir == ::nana::direction::north || dir == ::nana::direction::south);
 		}
-	private:
-		//Implement dock_notifier_interface
-		void notify_float() override
-		{
-			set_display(false);
-
-			impl_ptr_->collocate();
-		}
-
-		void notify_dock() override
-		{
-			indicator_.docker.reset();
-			set_display(true);
-			impl_ptr_->collocate();
-		}
-
-		void notify_move() override
-		{
-			if (!_m_indicator())
-			{
-				indicator_.docker.reset();
-				return;
-			}
-
-			if (!indicator_.docker)
-			{
-				auto host_size = API::window_size(impl_ptr_->window_handle);
-				indicator_.docker.reset(new form(impl_ptr_->window_handle, { static_cast<int>(host_size.width) / 2 - 16, static_cast<int>(host_size.height) / 2 - 16, 32, 32 }, form::appear::bald<>()));
-				drawing dw(indicator_.docker->handle());
-				dw.draw([](paint::graphics& graph)
-				{
-					graph.rectangle(false, colors::midnight_blue);
-					graph.rectangle({ 1, 1, 30, 30 }, true, colors::light_sky_blue);
-
-					facade<element::arrow> arrow;
-					arrow.direction(::nana::direction::south);
-					arrow.draw(graph, colors::light_sky_blue, colors::midnight_blue, { 12, 0, 16, 16 }, element_state::normal);
-
-					rectangle r{4, 16, 24, 11};
-					graph.rectangle(r, true, colors::midnight_blue);
-
-					r.x = 5;
-					r.y = 19;
-					r.width = 22;
-					r.height = 7;
-					graph.rectangle(r, true, colors::button_face);
-				});
-
-				indicator_.docker->z_order(nullptr, ::nana::z_order_action::topmost);
-				indicator_.docker->show();
-
-				indicator_.docker->events().destroy([this]
-				{
-					if (indicator_.dock_area)
-					{
-						indicator_.dock_area.reset();
-						indicator_.graph.release();
-					}
-				});
-			}
-
-			if (_m_dockable())
-			{
-				if (!indicator_.dock_area)
-				{
-					indicator_.graph.make(API::window_size(impl_ptr_->window_handle));
-					API::window_graphics(impl_ptr_->window_handle, indicator_.graph);
-
-					//indicator_.dock_area.reset(new form(impl_ptr_->window_handle, ::nana::size(), form::appear::bald<>()));	//deprecated
-					indicator_.dock_area.reset(new panel<true>(impl_ptr_->window_handle, false));
-					indicator_.dock_area->move(indicator_.r);
-
-					::nana::drawing dw(indicator_.dock_area->handle());
-					dw.draw([this](paint::graphics& graph)
-					{
-						indicator_.graph.paste(indicator_.r, graph, 0, 0);
-
-						const int border_px = 4;
-						rectangle r = graph.size();
-						int right = r.right();
-						int bottom = r.bottom();
-
-						graph.blend(r.pare_off(border_px), colors::blue, 0.3);
-
-						::nana::color clr = colors::deep_sky_blue;
-						r.y = 0;
-						r.height = border_px;
-						graph.blend(r, clr, 0.5);
-						r.y = bottom - border_px;
-						graph.blend(r, clr, 0.5);
-
-						r.x = r.y = 0;
-						r = graph.size();
-						r.width = border_px;
-						graph.blend(r, clr, 0.5);
-						r.x = right - border_px;
-						graph.blend(r, clr, 0.5);
-
-					});
-					//indicator_.dock_area->z_order(nullptr, ::nana::z_order_action::top);	//deprecated
-					API::bring_top(indicator_.dock_area->handle(), false);
-					indicator_.dock_area->show();
-				}
-			}
-			else
-			{
-				if (indicator_.dock_area)
-				{
-					indicator_.dock_area.reset();
-					indicator_.graph.release();
-				}
-			}
-
-		}
-
-		void notify_move_stopped()
-		{
-			if (_m_dockable() && dockable_field)
-				dockable_field->dockarea.dock();
-
-			indicator_.docker.reset();
-		}
-	private:
-		bool _m_indicator() const
-		{
-			::nana::point pos;
-			API::calc_screen_point(impl_ptr_->window_handle, pos);
-
-			rectangle r{ pos, API::window_size(impl_ptr_->window_handle) };
-			return r.is_hit(API::cursor_position());
-		}
-
-		bool _m_dockable() const
-		{
-			if (!indicator_.docker)
-				return false;
-
-			::nana::point pos;
-			API::calc_screen_point(indicator_.docker->handle(), pos);
-
-			rectangle r{ pos, API::window_size(indicator_.docker->handle()) };
-			return r.is_hit(API::cursor_position());
-		}
-	public:
-		field_dock * dockable_field{nullptr};
-	private:
-		implement * const impl_ptr_;
-		bool created_{ false };
-
-		struct indicator_tag
-		{
-			paint::graphics graph;
-			//panel<true> widget;
-			rectangle	r;
-			std::unique_ptr<panel<true>> dock_area;
-			std::unique_ptr<form> docker;
-		}indicator_;
 	};
 
 	place::implement::~implement()
