@@ -41,6 +41,15 @@ if(BIICODE)
     add_biicode_targets()
     
     return()
+else()
+    #Boost
+    if(WIN32)
+        include(${CMAKE_CURRENT_LIST_DIR}/win32/configure_boost_env.cmake)
+        configure_boost_env()
+    endif()
+    find_package(Boost 1.41.0 REQUIRED
+        COMPONENTS system)
+    include_directories(${Boost_INCLUDE_DIRS})
 endif()
 
 project(nana)
