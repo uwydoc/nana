@@ -5,6 +5,7 @@ Thumbs.db
 bii/build/*
 bii/cmake/*
 bii/deps/*
+bii/.hive.db
 *.obj
 *.exe
 *.pdb

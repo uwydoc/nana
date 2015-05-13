@@ -1,5 +1,5 @@
 # Nana C++ Library
-[![Build Status](https://webapi.biicode.com/v1/badges/qiangwu/qiangwu/nana/master)](https://www.biicode.com/qiangwu/nana) 
+[![Build Status](https://webapi.biicode.com/v1/badges/uwydoc/uwydoc/nana/master)](https://www.biicode.com/uwydoc/nana) 
 
 Nana is a C++ library designed to allow developers to easily create cross-platform GUI applications with modern C++11 style, currently it can work on Linux(X11) and Windows. The nana repository contains the entire source of library, you can browse the source code and submit your pull request for contributing.
 
@@ -16,7 +16,7 @@ Nana is available in biicode, download biicode and try the nana example:
 > mkdir try-nana
 > cd try-nana
 > bii init
-> bii open qiangwu/nana-example
+> bii open uwydoc/nana-example
 > bii find
 > bii build
 > cd bin

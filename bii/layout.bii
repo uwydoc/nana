@@ -1,4 +1,4 @@
- # Minimal layout, with all auxiliary folders inside "bii" and
+# Minimal layout, with all auxiliary folders inside "bii" and
 # The binary "bin" folder as is, and enabled code edition in the project root
 cmake: bii/cmake
 lib: bii/lib
@@ -9,4 +9,4 @@ deps: bii/deps
 # instead of blocks/youruser/yourblock
 # the block will be named as your project folder
 auto-root-block: True
-root-block: qiangwu/nana
+root-block: uwydoc/nana

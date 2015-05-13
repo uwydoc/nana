@@ -6,6 +6,6 @@
 # For each possible block that could resolve your dependencies,
 # only versions with tag >= TAG will be accepted
 
-qiangwu/* : DEV
+uwydoc/* : DEV
 * : STABLE
 
